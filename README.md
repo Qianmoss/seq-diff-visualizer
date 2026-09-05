@@ -1,5 +1,11 @@
 # SeqDiff Visualizer
 
+🧬 Gene Sequence Difference Visualization Tool
+
+A local sequence alignment tool based on Flask + MAFFT, featuring multiple alignment modes, base coloring, trimming, and bilingual interface.
+
+---
+
 🧬 基因序列差异位点可视化工具
 
 一个基于 Flask + MAFFT 的本地序列比对工具，支持多种比对模式、碱基着色、裁剪和中英双语。
@@ -63,8 +69,8 @@
 seq-diff-visualizer/
 ├── app.py              # Flask 后端
 ├── index.html          # 前端界面
-├── 启动工具.bat         # Windows 启动脚本
-├── 打包.bat             # PyInstaller 打包脚本
+├── start.bat             # Windows startup script
+├── build.bat             # PyInstaller build script
 ├── build.spec          # PyInstaller 配置
 ├── examples/           # 示例文件
 │   └── sample_rDNA.fasta
