@@ -2,44 +2,67 @@
 
 🧬 Gene Sequence Difference Visualization Tool
 
-A local sequence alignment tool based on Flask + MAFFT, featuring multiple alignment modes, base coloring, trimming, and bilingual interface.
+> 👋 Welcome! This tool helps you compare DNA sequences and visualize their differences. Feel free to use it and give me feedback!
+
+> 👋 欢迎使用！这个工具帮你比对DNA序列并可视化差异。欢迎使用和反馈！
+
+A local pairwise sequence alignment visualization tool with three alignment modes (Pre-aligned / NW Auto / MAFFT), base coloring, trim tool, and bilingual interface (Chinese/English). Currently supports two-sequence comparison only.
+
+## Screenshots
+
+|        Input Interface        |       Results & Statistics       |
+| :----------------------------: | :-------------------------------: |
+| ![Input](screenshot/1-input.png) | ![Results](screenshot/2-result.png) |
+
+|        English Interface        |              Base Coloring              |
+| :------------------------------: | :-------------------------------------: |
+| ![English](screenshot/3-color.png) | ![Visualization](screenshot/4-single.png) |
 
 ---
 
 🧬 基因序列差异位点可视化工具
 
-一个基于 Flask + MAFFT 的本地序列比对工具，支持多种比对模式、碱基着色、裁剪和中英双语。
+一个本地双序列比对可视化工具，支持三种比对模式（已比对/NW自动比对/MAFFT比对）、碱基着色、裁剪工具、中英双语。目前仅支持两条序列的比对。
 
 ## 功能特性
 
 - **三种比对模式**
-  - 已比对：直接比较已比对好的序列
+
+  - 已比对：直接计算已比对好的序列
   - NW 自动比对：Needleman-Wunsch 算法自动比对
   - MAFFT 比对：调用本地 MAFFT 进行专业比对
-
 - **可视化**
+
   - 碱基着色（A=绿 T=红 C=蓝 G=金）
   - 匹配/错配/空位背景高亮
   - 折行/单行显示切换
   - 悬停显示位点信息
-
 - **数据统计**
+
   - 比对长度、差异数、差异率
   - 详细数据（匹配/错配/空位）
   - 含 gap / 不含 gap 两种统计
-
 - **实用工具**
+
   - 裁剪碱基（可连续裁剪前后）
   - 差异位点列表（支持复制/导出 CSV）
   - 历史记录（最多保存 5 条）
   - 文件上传（支持 FASTA/TXT）
-
 - **多语言**
+
   - 中文 / English 切换
 
 ## 快速开始
 
-### 方式一：直接运行（推荐）
+### 方式一：下载 exe 版本（推荐）
+
+1. 下载 `dist/SeqDiff` 文件夹（或从 Releases 页面下载）
+2. 双击 `SeqDiff.exe` 即可运行，无需安装 Python
+3. 浏览器自动打开 http://localhost:5000
+
+> 注意：exe 版本已包含 Python 运行时，但 MAFFT 需要单独下载并放到 `mafft-win` 文件夹中。
+
+### 方式二：直接运行（适合开发者）
 
 1. 下载并安装 [Python 3.12](https://www.python.org/downloads/)
 2. 安装 Flask：
@@ -52,10 +75,6 @@ A local sequence alignment tool based on Flask + MAFFT, featuring multiple align
    python app.py
    ```
 5. 浏览器自动打开 http://localhost:5000
-
-### 方式二：打包版（Windows）
-
-下载 `dist/SeqDiff` 文件夹，双击 `SeqDiff.exe` 即可运行，无需安装 Python。
 
 ## 使用说明
 
@@ -95,3 +114,4 @@ MIT License - 详见 [LICENSE](LICENSE)
 
 - [MAFFT](https://mafft.cbrc.jp/alignment/software/) - 序列比对算法
 - [Flask](https://flask.palletsprojects.com/) - Python Web 框架
+- 这个项目是用 AI 写的，我只负责提需求和测试 🤖
