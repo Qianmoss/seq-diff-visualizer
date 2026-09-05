@@ -1,0 +1,158 @@
+"""
+SeqDiff Visualizer - Flask Backend
+调用本地 MAFFT 进行序列比对，返回结果给前端
+"""
+import os
+import sys
+import json
+import subprocess
+import tempfile
+import webbrowser
+import threading
+from flask import Flask, request, jsonify, send_from_directory
+
+app = Flask(__name__, static_folder='.', static_url_path='')
+
+# MAFFT 可执行文件路径
+MAFFT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mafft-win')
+MAFFT_BAT = os.path.join(MAFFT_DIR, 'mafft.bat')
+
+def find_mafft():
+    """查找 MAFFT 可执行文件"""
+    if os.path.exists(MAFFT_BAT):
+        return MAFFT_BAT
+    # 尝试其他路径
+    for name in ['mafft.bat', 'mafft.exe', 'mafft-signed.ps1']:
+        for root, dirs, files in os.walk(MAFFT_DIR):
+            for f in files:
+                if f.lower() == name.lower():
+                    return os.path.join(root, f)
+    return None
+
+@app.route('/')
+def index():
+    return send_from_directory('.', 'index.html')
+
+@app.route('/<path:filename>')
+def static_files(filename):
+    return send_from_directory('.', filename)
+
+@app.route('/api/mafft-align', methods=['POST'])
+def mafft_align():
+    """调用 MAFFT 进行双序列比对"""
+    data = request.json
+    seq1 = data.get('seq1', '').strip()
+    seq2 = data.get('seq2', '').strip()
+    seq1_name = data.get('name1', 'Seq1')
+    seq2_name = data.get('name2', 'Seq2')
+    
+    if not seq1 or not seq2:
+        return jsonify({'error': '请提供两条序列'}), 400
+    
+    mafft_path = find_mafft()
+    if not mafft_path:
+        return jsonify({'error': '未找到 MAFFT，请确认 mafft-win 文件夹中有 mafft.exe'}), 500
+    
+    # 创建临时 FASTA 文件
+    fasta_content = ">%s\n%s\n>%s\n%s\n" % (seq1_name, seq1, seq2_name, seq2)
+    
+    try:
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.fasta', delete=False, encoding='utf-8') as f:
+            f.write(fasta_content)
+            input_file = f.name
+        
+        output_file = input_file + '.out'
+        
+        # 调用 MAFFT (FFT-NS-2 模式，双序列比对最快)
+        mafft_dir = os.path.dirname(mafft_path)
+        cmd = 'cmd.exe /C "cd /d %s && mafft.bat --auto %s"' % (mafft_dir, input_file)
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=120,
+            encoding='utf-8',
+            errors='replace',
+            shell=True
+        )
+        
+        if result.returncode != 0:
+            return jsonify({'error': 'MAFFT 执行失败: ' + result.stderr[:500]}), 500
+        
+        # 解析输出
+        output = result.stdout
+        sequences = {}
+        current_name = None
+        current_seq = ""
+        
+        for line in output.strip().split('\n'):
+            line = line.strip()
+            if line.startswith('>'):
+                if current_name:
+                    sequences[current_name] = current_seq
+                current_name = line[1:].strip()
+                current_seq = ""
+            elif line:
+                current_seq += line
+        if current_name:
+            sequences[current_name] = current_seq
+        
+        names = list(sequences.keys())
+        if len(names) < 2:
+            return jsonify({'error': 'MAFFT 输出格式错误'}), 500
+        
+        aligned1 = sequences[names[0]]
+        aligned2 = sequences[names[1]]
+        
+        return jsonify({
+            'aligned1': aligned1,
+            'aligned2': aligned2,
+            'name1': names[0],
+            'name2': names[1],
+            'method': 'MAFFT FFT-NS-2'
+        })
+        
+    except subprocess.TimeoutExpired:
+        return jsonify({'error': 'MAFFT 执行超时（60秒）'}), 500
+    except Exception as e:
+        return jsonify({'error': '执行出错: ' + str(e)}), 500
+    finally:
+        # 清理临时文件
+        try:
+            os.unlink(input_file)
+        except:
+            pass
+
+@app.route('/api/check-mafft')
+def check_mafft():
+    """检查 MAFFT 是否可用"""
+    mafft_path = find_mafft()
+    if mafft_path:
+        return jsonify({'status': 'ok', 'path': mafft_path})
+    else:
+        return jsonify({'status': 'not_found', 'path': MAFFT_DIR})
+
+def open_browser(port):
+    """延迟打开浏览器"""
+    import time
+    time.sleep(1.5)
+    webbrowser.open(f'http://localhost:{port}')
+
+if __name__ == '__main__':
+    port = 5000
+    
+    # 检查 MAFFT
+    mafft_path = find_mafft()
+    if mafft_path:
+        print(f"✓ MAFFT 已找到: {mafft_path}")
+    else:
+        print(f"⚠ 未找到 MAFFT，请将 mafft.exe 放入: {MAFFT_DIR}")
+    
+    print(f"\n🧬 SeqDiff Visualizer 启动中...")
+    print(f"📖 浏览器将自动打开: http://localhost:{port}")
+    print(f"🛑 按 Ctrl+C 停止\n")
+    
+    # 自动打开浏览器
+    threading.Thread(target=open_browser, args=(port,), daemon=True).start()
+    
+    app.run(host='127.0.0.1', port=port, debug=False)

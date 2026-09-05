@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SeqDiff Visualizer</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#f5f4f0;--card:#fff;--border:#d4d0c8;--text:#2d2d2d;--muted:#6b6b6b;--primary:#3d5a3d;--primary-hover:#2d4a2d;--match-bg:#ffffff;--mismatch-bg:#f5c6c6;--gap-bg:#f0efec;--radius:4px;--shadow:0 2px 8px rgba(0,0,0,.06)}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans SC",sans-serif;background:var(--bg);color:var(--text);line-height:1.6}
+.container{max-width:1400px;margin:0 auto;padding:20px 30px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;box-shadow:var(--shadow)}
+.card-title{font-size:14px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:6px}
+.seq-inputs{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.seq-group label{display:block;font-size:13px;font-weight:600;margin-bottom:6px}
+.seq-group textarea{width:100%;height:160px;border:2px solid var(--border);border-radius:var(--radius);padding:12px;font-family:Consolas,monospace;font-size:13px;resize:vertical;color:var(--text);background:#fafbfc}
+.seq-group textarea:focus{outline:none;border-color:var(--primary);background:#fff}
+.btn{padding:10px 24px;border:none;border-radius:var(--radius);font-size:14px;font-weight:600;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-primary:hover{background:var(--primary-hover)}
+.btn-secondary{background:var(--card);color:var(--text);border:2px solid var(--border)}
+.btn-secondary:hover{background:var(--bg);border-color:var(--primary)}
+.btn-secondary:active{transform:scale(0.96);background:#e8e6e0}
+.btn-secondary:hover{background:var(--bg)}
+.actions{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+.stat-item{text-align:center;padding:16px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius)}
+.stat-value{font-size:28px;font-weight:700}
+.stat-label{font-size:12px;color:var(--muted);margin-top:4px}
+.stat-item.highlight{background:#f0f5f0;border-color:#a3d1a3}
+.stat-item.highlight .stat-value{color:var(--primary)}
+.viz-container{max-height:400px;overflow:auto;border:1px solid var(--border);border-radius:var(--radius);padding:16px;background:#fafbfc;font-family:Consolas,monospace;font-size:13px;line-height:2}
+.viz-single .viz-row{display:flex!important;white-space:nowrap}
+.base{display:inline-flex;align-items:center;justify-content:center;width:20px;height:24px;font-size:14px;font-weight:600;border-radius:2px}
+.base-match{background:var(--match-bg);color:#1a5c1a}
+.base-mismatch{background:var(--mismatch-bg);color:#8b1a1a;font-weight:800}
+.base-gap{background:var(--gap-bg);color:#808080}
+
+.diff-table{width:100%;border-collapse:collapse;font-size:13px}
+.diff-table th{background:var(--bg);padding:8px 14px;text-align:left;font-weight:600;font-size:12px;color:var(--muted);border-bottom:1px solid var(--border)}
+.diff-table td{padding:6px 14px;border-bottom:1px solid var(--border)}
+.diff-table tr:hover td{background:rgba(61,90,61,.03)}
+.error-msg{background:var(--mismatch-bg);color:#991b1b;padding:10px 14px;border-radius:var(--radius);font-size:13px;margin-bottom:12px;display:none}
+.error-msg.show{display:block}
+.loading{display:none;text-align:center;padding:30px;color:var(--muted)}
+.loading.show{display:block}
+.spinner{display:inline-block;width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#results{display:none}#results.show{display:block}
+.legend{display:flex;gap:16px;margin-top:12px;flex-wrap:wrap}
+.legend-item{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--muted)}
+.legend-dot{width:14px;height:14px;border-radius:3px}
+.copy-btn{padding:4px 12px;border:1px solid var(--border);border-radius:var(--radius);background:var(--card);font-size:12px;cursor:pointer;display:inline-flex;align-items:center;gap:4px}
+.copy-btn:hover{border-color:var(--primary);color:var(--primary)}
+.history-item{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px;cursor:pointer;transition:all .2s}
+.history-item:hover{border-color:var(--primary);background:#f0f5f0}
+.viz-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px}
+.viz-toggle{display:flex;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.viz-toggle-btn{padding:4px 12px;border:none;background:transparent;cursor:pointer;font-size:12px;font-weight:500;color:var(--muted);transition:all .2s}
+.viz-toggle-btn.active{background:var(--primary);color:#fff}
+.lang-btn.active{background:var(--primary);color:#fff;border-radius:var(--radius)}
+.upload-zone{margin-top:14px;padding:14px;border:2px dashed var(--border);border-radius:var(--radius);cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:12px}
+.upload-zone:hover{border-color:var(--primary)}
+
+.tooltip{position:relative;cursor:pointer}
+.tooltip:hover::after{content:attr(data-tip);position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:#2d2d2d;color:#fff;padding:2px 8px;border-radius:3px;font-size:10px;font-family:monospace;white-space:nowrap;z-index:10;pointer-events:none;margin-bottom:2px}
+.base-A{color:#006400!important;font-weight:800;font-size:15px}.base-T{color:#B22222!important;font-weight:800;font-size:15px}.base-C{color:#0000CD!important;font-weight:800;font-size:15px}.base-G{color:#D4A017!important;font-weight:800;font-size:15px}
+</style>
+</head>
+<body>
+<div class="container">
+  <!-- Header -->
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+    <h1 style="font-size:22px;font-weight:700;display:flex;align-items:center;gap:8px">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 15c6.667-6 13.333 0 20-6"/><path d="M9 22c1.798-1.998 2.512-3.995 2.807-5.993"/><path d="M15 2c-1.798 1.998-2.512 3.995-2.807 5.993"/></svg>
+      SeqDiff Visualizer
+    </h1>
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+      <div style="display:flex;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
+        <button class="lang-btn active" onclick="switchLang('zh')" style="padding:4px 10px;border:none;cursor:pointer;font-size:12px">中</button>
+        <button class="lang-btn" onclick="switchLang('en')" style="padding:4px 10px;border:none;cursor:pointer;font-size:12px">EN</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Guide -->
+  <div class="card" style="background:linear-gradient(135deg,#f0f5f0,#e8f0e8);border-left:4px solid var(--primary)">
+    <div style="display:flex;align-items:flex-start;gap:12px">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:600;margin-bottom:6px" data-i18n="guide_title">快速开始</div>
+        <div style="font-size:13px;color:var(--muted);line-height:1.8" data-i18n="guide_content"></div>
+      </div>
+      <button onclick="this.parentElement.parentElement.style.display='none'" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--muted)">&times;</button>
+    </div>
+  </div>
+
+  <div class="error-msg" id="errorMsg"></div>
+
+  <!-- Input -->
+  <div class="card">
+    <div class="seq-inputs">
+      <div class="seq-group">
+        <label data-i18n="seq1_label">序列1</label>
+        <textarea id="seq1" data-i18n-ph="seq1_ph"></textarea>
+      </div>
+      <div class="seq-group">
+        <label data-i18n="seq2_label">序列2</label>
+        <textarea id="seq2" data-i18n-ph="seq2_ph"></textarea>
+      </div>
+    </div>
+    <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+      <div>
+        <div style="font-size:13px;color:var(--muted)" data-i18n="upload_main"></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px" data-i18n="upload_sub"></div>
+      </div>
+      <input type="file" id="fileInput" accept=".fasta,.fa,.txt,.fna" style="display:none" onchange="handleFile(event)">
+    </div>
+    <div id="modeSelector" style="display:flex;align-items:center;gap:10px;margin-top:16px;margin-bottom:14px">
+      <span style="font-size:13px;color:var(--muted);white-space:nowrap" data-i18n="mode_label">分析模式:</span>
+      <div class="viz-toggle">
+        <button class="viz-toggle-btn active" id="btnAligned" onclick="setMode('aligned')" data-i18n="mode_aligned">已比对</button>
+        <button class="viz-toggle-btn" id="btnNw" onclick="setMode('nw')" data-i18n="mode_nw">NW自动比对</button>
+        <button class="viz-toggle-btn" id="btnMafft" onclick="setMode('mafft')" data-i18n="mode_mafft">MAFFT比对</button>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn btn-primary" onclick="run()"><span data-i18n="start_btn">开始</span></button>
+      <button class="btn btn-secondary" onclick="clearAll()"><span data-i18n="clear_btn">清空</span></button>
+    </div>
+  </div>
+
+  <div class="loading" id="loading"><div class="spinner"></div><p data-i18n="loading_text">比对中...</p></div>
+
+  <!-- Results -->
+  <div id="results">
+    <div class="card">
+      <div class="card-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+        <span data-i18n="results_title">统计结果</span>
+      </div>
+      <div id="statusBadge" style="display:inline-block;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;margin-bottom:14px"></div>
+      <div class="stats">
+        <div class="stat-item highlight"><div class="stat-value" id="statLen">-</div><div class="stat-label" data-i18n="stat_len">比对后长度</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px" data-i18n="stat_len_desc"></div></div>
+        <div class="stat-item"><div class="stat-value" id="statDiff">-</div><div class="stat-label" data-i18n="stat_diff">差异数</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px" data-i18n="stat_diff_desc"></div></div>
+        <div class="stat-item highlight"><div class="stat-value" id="statRate">-</div><div class="stat-label" data-i18n="stat_rate">差异率</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px" data-i18n="stat_rate_desc"></div></div>
+      </div>
+      <details>
+        <summary style="cursor:pointer;font-size:12px;color:var(--muted)" data-i18n="detail_toggle">详细数据</summary>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px">
+          <div style="text-align:center;padding:8px;background:var(--bg);border-radius:4px"><div style="font-size:16px;font-weight:600" id="statCompLen">-</div><div style="font-size:11px;color:var(--muted)" data-i18n="stat_comp_len">比对长度(除gap)</div>
+          <div style="font-size:10px;color:var(--muted)" data-i18n="stat_comp_len_desc"></div></div>
+          <div style="text-align:center;padding:8px;background:var(--bg);border-radius:4px"><div style="font-size:16px;font-weight:600" id="statMatch">-</div><div style="font-size:11px;color:var(--muted)" data-i18n="stat_match">匹配</div>
+          <div style="font-size:10px;color:var(--muted)" data-i18n="stat_match_desc"></div></div>
+          <div style="text-align:center;padding:8px;background:var(--bg);border-radius:4px"><div style="font-size:16px;font-weight:600" id="statMismatch">-</div><div style="font-size:11px;color:var(--muted)" data-i18n="stat_mismatch">错配</div>
+          <div style="font-size:10px;color:var(--muted)" data-i18n="stat_mismatch_desc"></div></div>
+          <div style="text-align:center;padding:8px;background:var(--bg);border-radius:4px"><div style="font-size:16px;font-weight:600" id="statGap">-</div><div style="font-size:11px;color:var(--muted)" data-i18n="stat_gap">空位</div>
+          <div style="font-size:10px;color:var(--muted)" data-i18n="stat_gap_desc"></div></div>
+        </div>
+        <div style="text-align:center;margin-top:8px;padding:8px;background:var(--bg);border-radius:4px">
+          <span style="font-size:13px;color:var(--muted)" data-i18n="stat_comp_rate_label">差异率(除gap):</span>
+          <span style="font-size:16px;font-weight:600;color:var(--primary)" id="statCompRate">-</span>
+        </div>
+      </details>
+    </div>
+
+    <!-- Viz -->
+    <div class="card">
+      <div class="viz-header">
+        <div class="card-title" style="margin-bottom:0">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
+          <span data-i18n="viz_title">比对可视化</span>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--muted);cursor:pointer">
+            <input type="checkbox" id="baseColorToggle" onchange="toggleBaseColor()">
+            <span data-i18n="base_color">碱基着色</span>
+          </label>
+          <button class="viz-toggle-btn" onclick="toggleCase()" data-i18n="upper_btn" style="padding:4px 10px;font-size:12px">Aa</button>
+          <div class="viz-toggle" id="vizModeToggle">
+            <button class="viz-toggle-btn active" onclick="setVizMode('wrap')" data-i18n="viz_wrap">折行</button>
+            <button class="viz-toggle-btn" onclick="setVizMode('single')" data-i18n="viz_single">单行</button>
+          </div>
+          <div id="trimControls" style="display:none;align-items:center;gap:6px;padding-left:8px;border-left:1px solid var(--border)">
+            <span style="font-size:12px;color:var(--muted)" data-i18n="trim_label">裁剪:</span>
+            <input type="number" id="trimStart" value="1" min="1" style="width:60px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px;text-align:center">
+            <span style="font-size:12px;color:var(--muted)">-</span>
+            <input type="number" id="trimEnd" value="100" min="1" style="width:60px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;font-size:12px;text-align:center">
+            <button class="btn btn-secondary" onclick="applyTrim()" style="padding:4px 10px;font-size:12px" data-i18n="trim_apply">应用</button>
+            <button class="btn btn-secondary" onclick="resetTrim()" style="padding:4px 10px;font-size:12px" data-i18n="trim_reset">重置</button>
+          </div>
+        </div>
+      </div>
+      <div class="viz-container" id="vizContainer"></div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--match-bg);border:1px solid #a3d1a3"></div><span data-i18n="leg_match">匹配</span></div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--mismatch-bg);border:1px solid #e8a3a3"></div><span data-i18n="leg_mismatch">错配</span></div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--gap-bg);border:1px solid #c8c4bc"></div><span data-i18n="leg_gap">空位</span></div>
+      </div>
+    </div>
+
+    <!-- Diff table -->
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div class="card-title" style="margin-bottom:0">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
+          <span data-i18n="diff_title">差异位点列表</span>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="copy-btn" onclick="copyDiff()"><span data-i18n="copy_btn">复制</span></button>
+          <button class="copy-btn" onclick="exportCSV()"><span data-i18n="export_btn">导出CSV</span></button>
+        </div>
+      </div>
+      <div style="max-height:300px;overflow:auto">
+        <table class="diff-table">
+          <thead><tr><th>#</th><th data-i18n="th_pos">位点</th><th data-i18n="th_seq1">序列1</th><th data-i18n="th_seq2">序列2</th><th data-i18n="th_type">类型</th></tr></thead>
+          <tbody id="diffBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- History -->
+  <div class="card">
+    <div class="card-title">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/><path d="M8 7h6"/><path d="M8 11h8"/></svg>
+      <span data-i18n="history_title">历史记录</span>
+    </div>
+    <div id="historyList"><div style="text-align:center;padding:20px;color:var(--muted);font-size:13px" data-i18n="history_empty">暂无记录，比对后自动保存</div></div>
+  </div>
+</div>
+
+<script>
+var currentMode = 'aligned';
+var lastAligned1 = '', lastAligned2 = '', lastName1 = '', lastName2 = '';
+var historyCache = [];
+var baseColorEnabled = false;
+var vizMode = 'wrap';
+var showUppercase = false;
+var nameWidth = 200;
+var originalAligned1 = '', originalAligned2 = '';
+var dragging = false;
+
+var I18N = {
+  zh: {
+    mode_label: '分析模式:', mode_aligned: '已比对', mode_nw: 'NW自动比对', mode_mafft: 'MAFFT比对',
+    input_title: '序列输入', start_btn: '开始', clear_btn: '清空',
+    results_title: '统计结果', diff_title: '差异位点列表', history_title: '历史记录',
+    viz_title: '比对可视化', base_color: '碱基着色', viz_wrap: '折行', viz_single: '单行',
+    trim_label: '裁剪:', trim_apply: '应用', trim_reset: '重置',
+    seq1_label: '序列1', seq2_label: '序列2',
+    seq1_ph: '粘贴序列1...', seq2_ph: '粘贴序列2...',
+    upload_main: '<strong style="color:var(--primary)">点击上传</strong> 或拖拽 FASTA / TXT 文件到此处',
+    upload_sub: '支持 .fasta / .fa / .txt 格式',
+    history_empty: '暂无记录，比对后自动保存', loading_text: '比对中...',
+    err_empty: '请输入两条序列', err_parse: '序列解析失败', err_length: '已比对模式下序列长度不一致',
+    err_timeout: 'MAFFT比对超时',
+    status_aligned: '已比对（直接比较）', status_nw: 'NW自动比对', status_mafft: 'MAFFT比对',
+    stat_len: '比对后长度', stat_len_desc: '含gap的总长度', stat_diff: '差异数', stat_diff_desc: '错配+空位', stat_rate: '差异率', stat_rate_desc: '差异数/总长度',
+    stat_comp_len: '比对长度(除gap)', stat_comp_len_desc: '去除gap后的长度', stat_match: '匹配', stat_match_desc: '碱基相同', stat_mismatch: '错配', stat_mismatch_desc: '碱基不同', stat_gap: '空位', stat_gap_desc: '单侧缺失',
+    stat_comp_rate_label: '差异率(除gap):', stat_comp_rate_desc: '错配/匹配+错配', detail_toggle: '详细数据',
+    leg_match: '匹配', leg_mismatch: '错配', leg_gap: '空位',
+    copy_btn: '复制', export_btn: '导出CSV', copy_ok: '已复制',
+    th_pos: '位点', th_seq1: '序列1', th_seq2: '序列2', th_type: '类型',
+    type_mismatch: '错配', type_gap1: '序列1空位', type_gap2: '序列2空位',
+    upper_btn: 'Aa', guide_title: '快速开始',
+    guide_content: '<strong>① 添加序列</strong>　在下方粘贴两条序列，或上传 FASTA 文件<br><strong>② 选择模式</strong>　已比对 / NW自动比对 / MAFFT比对<br><strong>③ 开始计算</strong>　查看差异位点、统计与可视化'
+  },
+  en: {
+    mode_label: 'Mode:', mode_aligned: 'Pre-aligned', mode_nw: 'NW Auto', mode_mafft: 'MAFFT',
+    input_title: 'Sequence Input', start_btn: 'Start', clear_btn: 'Clear',
+    results_title: 'Statistics', diff_title: 'Difference List', history_title: 'History',
+    viz_title: 'Alignment Visualization', base_color: 'Base Color', viz_wrap: 'Wrap', viz_single: 'Single',
+    trim_label: 'Trim:', trim_apply: 'Apply', trim_reset: 'Reset',
+    seq1_label: 'Seq 1', seq2_label: 'Seq 2',
+    seq1_ph: 'Paste sequence 1...', seq2_ph: 'Paste sequence 2...',
+    upload_main: '<strong style="color:var(--primary)">Click to upload</strong> or drag FASTA / TXT files here',
+    upload_sub: 'Supports .fasta / .fa / .txt formats',
+    history_empty: 'No records yet, auto-saved after comparison', loading_text: 'Aligning...',
+    err_empty: 'Please enter two sequences', err_parse: 'Failed to parse sequences', err_length: 'Sequences have different lengths',
+    err_timeout: 'MAFFT alignment timeout',
+    status_aligned: 'Pre-aligned (Direct)', status_nw: 'NW Auto-align', status_mafft: 'MAFFT Align',
+    stat_len: 'Aligned Length', stat_len_desc: 'Total length incl. gaps', stat_diff: 'Differences', stat_diff_desc: 'Mismatch + Gap', stat_rate: 'Diff Rate', stat_rate_desc: 'Differences / Total',
+    stat_comp_len: 'Length (excl. gap)', stat_comp_len_desc: 'Length minus gaps', stat_match: 'Match', stat_match_desc: 'Same base', stat_mismatch: 'Mismatch', stat_mismatch_desc: 'Different base', stat_gap: 'Gap', stat_gap_desc: 'One-side missing',
+    stat_comp_rate_label: 'Diff Rate (excl. gap):', stat_comp_rate_desc: 'Mismatch / Match+Mismatch', detail_toggle: 'Details',
+    leg_match: 'Match', leg_mismatch: 'Mismatch', leg_gap: 'Gap',
+    copy_btn: 'Copy', export_btn: 'Export CSV', copy_ok: 'Copied!',
+    th_pos: 'Position', th_seq1: 'Seq 1', th_seq2: 'Seq 2', th_type: 'Type',
+    type_mismatch: 'Mismatch', type_gap1: 'Gap in Seq1', type_gap2: 'Gap in Seq2',
+    upper_btn: 'Aa', guide_title: 'Quick Start',
+    guide_content: '<strong>① Add Sequences</strong>　Paste two sequences or upload FASTA<br><strong>② Select Mode</strong>　Pre-aligned / NW Auto / MAFFT<br><strong>③ Start</strong>　View differences, statistics and visualization'
+  }
+};
+var currentLang = 'zh';
+window.addEventListener('DOMContentLoaded', function() {
+    switchLang('zh');
+
+  });
+
+function t(key) { return I18N[currentLang][key] || key; }
+
+
+function startDrag(e) {
+  dragging = true;
+  document.addEventListener('mousemove', onDrag);
+  document.addEventListener('mouseup', stopDrag);
+  e.preventDefault();
+}
+function onDrag(e) {
+  if (!dragging) return;
+  var container = document.getElementById('vizContainer');
+  var rect = container.getBoundingClientRect();
+  var newNameWidth = e.clientX - rect.left - container.scrollLeft;
+  newNameWidth = Math.max(60, Math.min(300, newNameWidth));
+  nameWidth = newNameWidth;
+  if (lastAligned1) renderViz(lastAligned1, lastAligned2, lastName1, lastName2);
+}
+function stopDrag() {
+  dragging = false;
+  document.removeEventListener('mousemove', onDrag);
+  document.removeEventListener('mouseup', stopDrag);
+}
+
+function toggleCase() {
+  showUppercase = !showUppercase;
+  var btn = document.querySelector('[onclick="toggleCase()"]');
+  if (btn) btn.classList.toggle('active', showUppercase);
+  if (lastAligned1) renderViz(lastAligned1, lastAligned2, lastName1, lastName2);
+}
+
+function switchLang(lang) {
+  currentLang = lang;
+  document.querySelectorAll('.lang-btn').forEach(function(b) {
+    b.classList.toggle('active', b.textContent.trim() === (lang === 'zh' ? '中' : 'EN'));
+  });
+  document.querySelectorAll('[data-i18n]').forEach(function(el) {
+    var k = el.getAttribute('data-i18n');
+    if (I18N[lang][k]) el.innerHTML = I18N[lang][k];
+  });
+  document.querySelectorAll('[data-i18n-ph]').forEach(function(el) {
+    var k = el.getAttribute('data-i18n-ph');
+    if (I18N[lang][k]) el.placeholder = I18N[lang][k];
+  });
+}
+
+function setMode(mode) {
+  currentMode = mode;
+  document.getElementById('btnAligned').classList.toggle('active', mode === 'aligned');
+  document.getElementById('btnNw').classList.toggle('active', mode === 'nw');
+  document.getElementById('btnMafft').classList.toggle('active', mode === 'mafft');
+}
+
+function showError(msg) {
+  var el = document.getElementById('errorMsg');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(function() { el.classList.remove('show'); }, 5000);
+}
+
+function extractSeq(text) {
+  var trimmed = text.trim();
+  if (trimmed.indexOf('>') === 0) {
+    var seqs = parseFasta(trimmed);
+    return seqs.length ? seqs[0] : null;
+  }
+  var seq = trimmed.toUpperCase().replace(/[^ATCGUNRYSWKMBDHV-]/g, '');
+  return { name: 'User Sequence', seq: seq };
+}
+
+function parseFasta(text) {
+  var results = [];
+  var name = '', seq = '';
+  var lines = text.split('\n');
+  for (var i = 0; i < lines.length; i++) {
+    var t = lines[i].trim();
+    if (!t) continue;
+    if (t.charAt(0) === '>') {
+      if (name && seq) results.push({ name: name, seq: seq });
+      name = t.substring(1).trim();
+      seq = '';
+    } else {
+      seq += t.toUpperCase().replace(/[^ATCGUNRYSWKMBDHV-]/g, '');
+    }
+  }
+  if (name && seq) results.push({ name: name, seq: seq });
+  return results;
+}
+
+function handleFile(event) {
+  var file = event.target.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var text = e.target.result;
+    var seqs = parseFasta(text);
+    if (seqs.length >= 2) {
+      document.getElementById('seq1').value = '>' + seqs[0].name + '\n' + seqs[0].seq;
+      document.getElementById('seq2').value = '>' + seqs[1].name + '\n' + seqs[1].seq;
+    } else if (seqs.length === 1) {
+      document.getElementById('seq1').value = '>' + seqs[0].name + '\n' + seqs[0].seq;
+    }
+  };
+  reader.readAsText(file);
+}
+
+function needlemanWunsch(s1, s2, matchScore, mismatchScore, gapOpen, gapExtend) {
+  var m = s1.length, n = s2.length;
+  var INF = -999999;
+  var size = (m + 1) * (n + 1);
+  var M = new Int32Array(size), X = new Int32Array(size), Y = new Int32Array(size);
+  var traceM = new Uint8Array(size), traceX = new Uint8Array(size), traceY = new Uint8Array(size);
+  var idx = function(i, j) { return i * (n + 1) + j; };
+  M[0] = 0; X[0] = Y[0] = INF;
+  for (var i = 1; i <= m; i++) { M[idx(i,0)] = INF; X[idx(i,0)] = gapOpen + gapExtend*(i-1); Y[idx(i,0)] = INF; traceM[idx(i,0)]=2; traceX[idx(i,0)]=1; }
+  for (var j = 1; j <= n; j++) { M[idx(0,j)] = INF; X[idx(0,j)] = INF; Y[idx(0,j)] = gapOpen + gapExtend*(j-1); traceM[idx(0,j)]=1; traceY[idx(0,j)]=1; }
+  for (var i = 1; i <= m; i++) {
+    for (var j = 1; j <= n; j++) {
+      var s = s1[i-1] === s2[j-1] ? matchScore : mismatchScore;
+      var fm = M[idx(i-1,j-1)], fx = X[idx(i-1,j-1)], fy = Y[idx(i-1,j-1)];
+      if (fm >= fx && fm >= fy) { M[idx(i,j)] = fm+s; traceM[idx(i,j)]=0; }
+      else if (fx >= fy) { M[idx(i,j)] = fx+s; traceM[idx(i,j)]=1; }
+      else { M[idx(i,j)] = fy+s; traceM[idx(i,j)]=2; }
+      var xm = M[idx(i-1,j)]+gapOpen, xx = X[idx(i-1,j)]+gapExtend;
+      X[idx(i,j)] = xm >= xx ? (traceX[idx(i,j)]=0,xm) : (traceX[idx(i,j)]=1,xx);
+      var ym = M[idx(i,j-1)]+gapOpen, yy = Y[idx(i,j-1)]+gapExtend;
+      Y[idx(i,j)] = ym >= yy ? (traceY[idx(i,j)]=0,ym) : (traceY[idx(i,j)]=1,yy);
+    }
+  }
+  var al1='', al2='', ci=m, cj=n, state;
+  var fM=M[idx(m,n)], fX=X[idx(m,n)], fY=Y[idx(m,n)];
+  state = fM>=fX && fM>=fY ? 0 : fX>=fY ? 1 : 2;
+  while (ci>0 || cj>0) {
+    if (state===0) {
+      var tm=traceM[idx(ci,cj)];
+      if (tm===0) { al1=s1[ci-1]+al1; al2=s2[cj-1]+al2; ci--; cj--; }
+      else if (tm===1) { al1=s1[ci-1]+al1; al2='-'+al2; ci--; state=1; if(traceX[idx(ci+1,cj)]===0) state=0; }
+      else { al1='-'+al1; al2=s2[cj-1]+al2; cj--; state=2; if(traceY[idx(ci,cj+1)]===0) state=0; }
+    } else if (state===1) {
+      if (traceX[idx(ci,cj)]===0) { al1=s1[ci-1]+al1; al2='-'+al2; ci--; state=0; }
+      else { al1=s1[ci-1]+al1; al2='-'+al2; ci--; }
+    } else {
+      if (traceY[idx(ci,cj)]===0) { al1='-'+al1; al2=s2[cj-1]+al2; cj--; state=0; }
+      else { al1='-'+al1; al2=s2[cj-1]+al2; cj--; }
+    }
+  }
+  return { aligned1: al1, aligned2: al2 };
+}
+
+async function mafftAlign(seq1, seq2, name1, name2) {
+  var controller = new AbortController();
+  var timeoutId = setTimeout(function() { controller.abort(); }, 120000);
+  try {
+    var response = await fetch('/api/mafft-align', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ seq1: seq1, seq2: seq2, name1: name1, name2: name2 }),
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+    var data = await response.json();
+    if (data.error) throw new Error(data.error);
+    return data;
+  } catch (e) {
+    clearTimeout(timeoutId);
+    throw e;
+  }
+}
+
+function computeStats(a1, a2) {
+  var match=0, mismatch=0, gap=0;
+  var len = Math.min(a1.length, a2.length);
+  for (var i=0; i<len; i++) {
+    var a=a1[i], b=a2[i];
+    if (a==='-' && b==='-') gap++;
+    else if (a==='-' || b==='-') gap++;
+    else if (a===b) match++;
+    else mismatch++;
+  }
+  var diff = mismatch+gap;
+  var rate = len>0 ? (diff/len*100) : 0;
+  var compLen = match+mismatch;
+  var compRate = compLen>0 ? (mismatch/compLen*100) : 0;
+  return { length:len, match:match, mismatch:mismatch, gap:gap, diff:diff, rate:Math.min(100,rate), comparedLen:compLen, comparedDiffRate:Math.min(100,compRate) };
+}
+
+function findDifferences(a1, a2) {
+  var diffs = [];
+  for (var i=0; i<Math.min(a1.length,a2.length); i++) {
+    if (a1[i]!==a2[i]) {
+      var type = a1[i]==='-' ? 'gap1' : a2[i]==='-' ? 'gap2' : 'mismatch';
+      diffs.push({ pos:i+1, base1:a1[i], base2:a2[i], type:type });
+    }
+  }
+  return diffs;
+}
+
+
+function cleanSeqName(name) {
+  var idx = name.indexOf('(');
+  if (idx > 0) name = name.substring(0, idx);
+  return name.trim();
+}
+
+function renderViz(a1, a2, n1, n2) {
+  n1 = cleanSeqName(n1);
+  n2 = cleanSeqName(n2);
+  var vc = document.getElementById('vizContainer');
+  vc.innerHTML = '';
+  var len = a1.length;
+  var nw = nameWidth;
+
+  if (vizMode === 'single') {
+    vc.style.whiteSpace='nowrap';
+    vc.style.overflowX='auto';
+    var h = '<div style="display:flex;align-items:center;margin-bottom:4px"><div style="width:'+nw+'px;text-align:right;padding-right:4px;flex-shrink:0;white-space:nowrap;font-size:11px;color:var(--muted);cursor:col-resize;border-right:2px solid var(--border);user-select:none;overflow:hidden;text-overflow:ellipsis" onmousedown="startDrag(event)">'+n1+'</div><div style="display:flex">';
+    for (var k=0;k<len;k++) { var a=a1[k],b2=a2[k]; var cls=a==='-'?'base-gap':a===b2?'base-match':'base-mismatch'; var bc=baseColorEnabled&&a!=='-'?' base-'+a.toUpperCase():''; var dv=showUppercase?a.toUpperCase():a; h+='<span class="base '+cls+bc+' tooltip" data-tip="'+(k+1)+': '+dv+'">'+dv+'</span>'; }
+    h += '</div></div>';
+    h += '<div style="display:flex;align-items:center"><div style="width:'+nw+'px;text-align:right;padding-right:4px;flex-shrink:0;white-space:nowrap;font-size:11px;color:var(--muted);border-right:2px solid transparent;overflow:hidden;text-overflow:ellipsis">'+n2+'</div><div style="display:flex">';
+    for (var k=0;k<len;k++) { var a=a1[k],b2=a2[k]; var cls=b2==='-'?'base-gap':a===b2?'base-match':'base-mismatch'; var bc=baseColorEnabled&&b2!=='-'?' base-'+b2.toUpperCase():''; var dv=showUppercase?b2.toUpperCase():b2; h+='<span class="base '+cls+bc+' tooltip" data-tip="'+(k+1)+': '+dv+'">'+dv+'</span>'; }
+    h += '</div></div>';
+    vc.innerHTML = h;
+    return;
+  }
+
+  // Wrap mode
+  vc.style.whiteSpace='';
+  vc.style.overflowX='';
+  var BLOCK = 60;
+  for (var b=0; b<Math.ceil(len/BLOCK); b++) {
+    var s=b*BLOCK, e=Math.min(s+BLOCK,len);
+    var div = document.createElement('div');
+    div.style.marginBottom='12px';
+    var h = '<div style="color:var(--muted);font-size:11px;display:grid;grid-template-columns:'+nw+'px 1fr;margin-bottom:2px"><span></span><div style="display:flex">';
+    for (var k=s;k<e;k++) { h += (k+1)%10===0||k===s ? '<span style="width:20px;text-align:center;font-size:10px">'+(k+1)+'</span>' : '<span style="width:20px"></span>'; }
+    h += '</div></div>';
+    h += '<div style="display:grid;grid-template-columns:'+nw+'px 1fr;align-items:center"><div style="font-size:11px;color:var(--muted);text-align:right;padding-right:4px;white-space:nowrap;cursor:col-resize;border-right:2px solid var(--border);user-select:none" onmousedown="startDrag(event)">'+n1+'</div><div style="display:flex">';
+    for (var k=s;k<e;k++) { var a=a1[k],b2=a2[k]; var cls=a==='-'?'base-gap':a===b2?'base-match':'base-mismatch'; var bc=baseColorEnabled&&a!=='-'?' base-'+a.toUpperCase():''; var dv=showUppercase?a.toUpperCase():a; h+='<span class="base '+cls+bc+' tooltip" data-tip="'+(k+1)+': '+dv+'">'+dv+'</span>'; }
+    h += '</div></div>';
+    h += '<div style="display:grid;grid-template-columns:'+nw+'px 1fr;align-items:center"><div style="font-size:11px;color:var(--muted);text-align:right;padding-right:4px;white-space:nowrap;border-right:2px solid transparent">'+n2+'</div><div style="display:flex">';
+    for (var k=s;k<e;k++) { var a=a1[k],b2=a2[k]; var cls=b2==='-'?'base-gap':a===b2?'base-match':'base-mismatch'; var bc=baseColorEnabled&&b2!=='-'?' base-'+b2.toUpperCase():''; var dv=showUppercase?b2.toUpperCase():b2; h+='<span class="base '+cls+bc+' tooltip" data-tip="'+(k+1)+': '+dv+'">'+dv+'</span>'; }
+    h += '</div></div>';
+    div.innerHTML = h;
+    vc.appendChild(div);
+  }
+}
+function renderDiffTable(diffs) {
+  var body = document.getElementById('diffBody');
+  body.innerHTML = '';
+  if (!diffs.length) { body.innerHTML='<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--muted)">'+t('err_empty')+'</td></tr>'; return; }
+  var types = { mismatch:t('type_mismatch'), gap1:t('type_gap1'), gap2:t('type_gap2') };
+  for (var i=0;i<diffs.length;i++) {
+    var d=diffs[i];
+    body.innerHTML += '<tr><td style="font-weight:600;color:var(--primary)">'+(i+1)+'</td><td style="font-weight:600;color:var(--primary)">'+d.pos+'</td><td style="font-family:monospace;font-weight:600">'+d.base1+'</td><td style="font-family:monospace;font-weight:600">'+d.base2+'</td><td>'+(types[d.type]||d.type)+'</td></tr>';
+  }
+}
+
+function toggleBaseColor() {
+  baseColorEnabled = document.getElementById('baseColorToggle').checked;
+  if (lastAligned1) renderViz(lastAligned1, lastAligned2, lastName1, lastName2);
+}
+
+function setVizMode(mode) {
+  vizMode = mode;
+  var btns = document.querySelectorAll('#vizModeToggle .viz-toggle-btn');
+  btns.forEach(function(b){ b.classList.remove('active'); });
+  if (mode==='single') { if (btns[1]) btns[1].classList.add('active'); }
+  else { if (btns[0]) btns[0].classList.add('active'); }
+  if (lastAligned1) renderViz(lastAligned1, lastAligned2, lastName1, lastName2);
+}
+
+async function run() {
+  document.getElementById('errorMsg').classList.remove('show');
+  var raw1 = document.getElementById('seq1').value.trim();
+  var raw2 = document.getElementById('seq2').value.trim();
+  if (!raw1 || !raw2) { showError(t('err_empty')); return; }
+  var s1 = extractSeq(raw1), s2 = extractSeq(raw2);
+  if (!s1 || !s1.seq || !s2 || !s2.seq) { showError(t('err_parse')); return; }
+  document.getElementById('loading').classList.add('show');
+  document.getElementById('results').classList.remove('show');
+  try {
+    var a1, a2;
+    if (currentMode === 'aligned') {
+      if (s1.seq.length !== s2.seq.length) { showError(t('err_length')); document.getElementById('loading').classList.remove('show'); return; }
+      a1 = s1.seq; a2 = s2.seq;
+    } else if (currentMode === 'mafft') {
+      var r = await mafftAlign(s1.seq, s2.seq, s1.name, s2.name);
+      a1 = r.aligned1; a2 = r.aligned2;
+    } else {
+      var r = needlemanWunsch(s1.seq, s2.seq, 1, -1, -5, -1);
+      a1 = r.aligned1; a2 = r.aligned2;
+    }
+    lastAligned1=a1; lastAligned2=a2; originalAligned1=a1; originalAligned2=a2; lastName1=s1.name; lastName2=s2.name;
+    var stats = computeStats(a1, a2);
+    var badge = document.getElementById('statusBadge');
+    if (currentMode==='aligned') { badge.style.background='var(--match-bg)'; badge.style.color='#166534'; badge.style.border='1px solid #a3d1a3'; badge.textContent=t('status_aligned'); }
+    else if (currentMode==='mafft') { badge.style.background='#fef3c7'; badge.style.color='#92400e'; badge.style.border='1px solid #fde68a'; badge.textContent=t('status_mafft'); }
+    else { badge.style.background='#fef3c7'; badge.style.color='#92400e'; badge.style.border='1px solid #fde68a'; badge.textContent=t('status_nw'); }
+    document.getElementById('statLen').textContent = stats.length.toLocaleString();
+    document.getElementById('statCompLen').textContent = stats.comparedLen.toLocaleString();
+    document.getElementById('statMatch').textContent = stats.match.toLocaleString();
+    document.getElementById('statMismatch').textContent = stats.mismatch.toLocaleString();
+    document.getElementById('statGap').textContent = stats.gap.toLocaleString();
+    document.getElementById('statDiff').textContent = stats.diff.toLocaleString();
+    document.getElementById('statRate').textContent = stats.rate.toFixed(2)+'%';
+    document.getElementById('statCompRate').textContent = stats.comparedDiffRate.toFixed(2)+'%';
+    renderViz(a1, a2, s1.name, s2.name);
+    renderDiffTable(findDifferences(a1, a2));
+    document.getElementById('loading').classList.remove('show');
+    document.getElementById('results').classList.add('show');
+    document.getElementById('trimControls').style.display='flex';
+    document.getElementById('trimStart').value=1;
+    document.getElementById('trimEnd').value=a1.length;
+    addToHistory(s1.name, s2.name, stats, a1, a2);
+  } catch(e) { showError(e.message||'Error'); document.getElementById('loading').classList.remove('show'); }
+}
+
+function clearAll() {
+  document.getElementById('seq1').value='';
+  document.getElementById('seq2').value='';
+  document.getElementById('results').classList.remove('show');
+  document.getElementById('errorMsg').classList.remove('show');
+}
+
+function addToHistory(n1,n2,stats,a1,a2) {
+  historyCache.unshift({ name1:n1, name2:n2, stats:{length:stats.length,match:stats.match,mismatch:stats.mismatch,gap:stats.gap,diff:stats.diff,rate:stats.rate,comparedLen:stats.comparedLen,comparedDiffRate:stats.comparedDiffRate}, aligned1:a1, aligned2:a2, time:new Date().toLocaleTimeString() });
+  if (historyCache.length>5) historyCache.pop();
+  renderHistory();
+}
+
+function renderHistory() {
+  var el = document.getElementById('historyList');
+  if (!historyCache.length) { el.innerHTML='<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px" data-i18n="history_empty">'+t('history_empty')+'</div>'; return; }
+  el.innerHTML = '';
+  for (var i=0;i<historyCache.length;i++) {
+    var h=historyCache[i];
+    var rate = h.stats.rate.toFixed(2);
+    el.innerHTML += '<div class="history-item" onclick="loadHistory('+i+')"><div><div style="font-size:13px;font-weight:600">'+h.name1+' vs '+h.name2+'</div><div style="font-size:11px;color:var(--muted);margin-top:2px">'+h.stats.length+' bp · '+rate+'% · '+h.time+'</div></div></div>';
+  }
+}
+
+function loadHistory(i) {
+  var h = historyCache[i];
+  lastAligned1=h.aligned1; lastAligned2=h.aligned2; lastName1=h.name1; lastName2=h.name2;
+  document.getElementById('statLen').textContent = h.stats.length.toLocaleString();
+  document.getElementById('statCompLen').textContent = h.stats.comparedLen.toLocaleString();
+  document.getElementById('statMatch').textContent = h.stats.match.toLocaleString();
+  document.getElementById('statMismatch').textContent = h.stats.mismatch.toLocaleString();
+  document.getElementById('statGap').textContent = h.stats.gap.toLocaleString();
+  document.getElementById('statDiff').textContent = h.stats.diff.toLocaleString();
+  document.getElementById('statRate').textContent = h.stats.rate.toFixed(2)+'%';
+  document.getElementById('statCompRate').textContent = h.stats.comparedDiffRate.toFixed(2)+'%';
+  renderViz(h.aligned1, h.aligned2, h.name1, h.name2);
+  renderDiffTable(findDifferences(h.aligned1, h.aligned2));
+  document.getElementById('results').classList.add('show');
+}
+
+function applyTrim() {
+  var start = parseInt(document.getElementById('trimStart').value) || 1;
+  var end = parseInt(document.getElementById('trimEnd').value) || lastAligned1.length;
+  if (start<1 || start>end) { showError('Invalid range'); return; }
+  var a1 = lastAligned1.substring(0, start-1) + lastAligned1.substring(end);
+  var a2 = lastAligned2.substring(0, start-1) + lastAligned2.substring(end);
+  var stats = computeStats(a1, a2);
+  document.getElementById('statLen').textContent = stats.length.toLocaleString();
+  document.getElementById('statCompLen').textContent = stats.comparedLen.toLocaleString();
+  document.getElementById('statMatch').textContent = stats.match.toLocaleString();
+  document.getElementById('statMismatch').textContent = stats.mismatch.toLocaleString();
+  document.getElementById('statGap').textContent = stats.gap.toLocaleString();
+  document.getElementById('statDiff').textContent = stats.diff.toLocaleString();
+  document.getElementById('statRate').textContent = stats.rate.toFixed(2)+'%';
+  document.getElementById('statCompRate').textContent = stats.comparedDiffRate.toFixed(2)+'%';
+  renderViz(a1, a2, lastName1, lastName2);
+  renderDiffTable(findDifferences(a1, a2));
+  lastAligned1 = a1;
+  lastAligned2 = a2;
+}
+
+function resetTrim() {
+  document.getElementById('trimStart').value = 1;
+  document.getElementById('trimEnd').value = originalAligned1.length;
+  lastAligned1 = originalAligned1;
+  lastAligned2 = originalAligned2;
+  var stats = computeStats(lastAligned1, lastAligned2);
+  document.getElementById('statLen').textContent = stats.length.toLocaleString();
+  document.getElementById('statCompLen').textContent = stats.comparedLen.toLocaleString();
+  document.getElementById('statMatch').textContent = stats.match.toLocaleString();
+  document.getElementById('statMismatch').textContent = stats.mismatch.toLocaleString();
+  document.getElementById('statGap').textContent = stats.gap.toLocaleString();
+  document.getElementById('statDiff').textContent = stats.diff.toLocaleString();
+  document.getElementById('statRate').textContent = stats.rate.toFixed(2)+'%';
+  document.getElementById('statCompRate').textContent = stats.comparedDiffRate.toFixed(2)+'%';
+  renderViz(lastAligned1, lastAligned2, lastName1, lastName2);
+  renderDiffTable(findDifferences(lastAligned1, lastAligned2));
+}
+
+function copyDiff() {
+  var rows = document.querySelectorAll('#diffBody tr');
+  var text = '#\tPosition\tSeq1\tSeq2\tType\n';
+  rows.forEach(function(r) { var cells=r.querySelectorAll('td'); if(cells.length>=5) text+=Array.from(cells).map(function(c){return c.textContent}).join('\t')+'\n'; });
+  navigator.clipboard.writeText(text).then(function() { alert(t('copy_ok')); });
+}
+
+function exportCSV() {
+  var rows = document.querySelectorAll('#diffBody tr');
+  var csv = '\uFEFF#\tPosition\tSeq1\tSeq2\tType\n';
+  rows.forEach(function(r) { var cells=r.querySelectorAll('td'); if(cells.length>=5) csv+=Array.from(cells).map(function(c){return c.textContent}).join(',')+'\n'; });
+  var blob = new Blob([csv], {type:'text/csv'});
+  var a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='diff_result.csv'; a.click();
+}
+</script>
+</body>
+</html>
