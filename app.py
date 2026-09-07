@@ -50,11 +50,9 @@ def mafft_align():
     # Validate DNA characters
     import re
     valid_bases = re.compile(r'^[ATCGUNRYSWKMBDHV-]+$', re.IGNORECASE)
-    if not valid_bases.match(seq1.replace(' ', '').replace('
-', '')):
+    if not valid_bases.match(seq1.replace(' ', '').replace('\n', '')):
         return jsonify({'error': '序列1包含非法字符'}), 400
-    if not valid_bases.match(seq2.replace(' ', '').replace('
-', '')):
+    if not valid_bases.match(seq2.replace(' ', '').replace('\n', '')):
         return jsonify({'error': '序列2包含非法字符'}), 400
     
     mafft_path = find_mafft()
