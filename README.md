@@ -111,7 +111,7 @@ seq-diff-visualizer/
 │   └── sample_rDNA.fasta
 ├── docs/
 │   └── screenshots/    # 项目截图
-├── mafft-win/          # Windows 版 MAFFT（需自行下载）
+├── mafft-win/          # Windows 版 MAFFT（Release 版本已内置，源码需自行下载）
 └── dist/               # PyInstaller 打包输出（构建产物）
 ```
 
