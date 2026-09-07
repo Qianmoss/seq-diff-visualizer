@@ -217,7 +217,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans S
       </div>
       <div style="max-height:300px;overflow:auto">
         <table class="diff-table">
-          <thead><tr><th>#</th><th data-i18n="th_pos">位点</th><th data-i18n="th_seq1">序列1</th><th data-i18n="th_seq2">序列2</th><th data-i18n="th_type">类型</th></tr></thead>
+          <thead><tr><th>#</th><th data-i18n="th_align_pos">比对位点</th><th data-i18n="th_seq1_pos">Seq1位点</th><th data-i18n="th_seq1">Seq1</th><th data-i18n="th_seq2_pos">Seq2位点</th><th data-i18n="th_seq2">Seq2</th><th data-i18n="th_type">类型</th></tr></thead>
           <tbody id="diffBody"></tbody>
         </table>
       </div>
@@ -257,7 +257,7 @@ var I18N = {
     upload_main: '<strong style="color:var(--primary)">点击上传</strong> 或拖拽 FASTA / TXT 文件到此处',
     upload_sub: '支持 .fasta / .fa / .txt 格式',
     history_empty: '暂无记录，比对后自动保存', loading_text: '比对中...',
-    err_empty: '请输入两条序列', err_parse: '序列解析失败', err_length: '已比对模式下序列长度不一致',
+    err_empty: '请输入两条序列', err_parse: '序列解析失败', err_length: '已比对模式下序列长度不一致', err_invalid_chars: '检测到非法字符', err_too_many: '当前版本仅支持两条序列，请选择或输入两条序列',
     err_timeout: 'MAFFT比对超时',
     status_aligned: '已比对（直接比较）', status_nw: 'NW自动比对', status_mafft: 'MAFFT比对',
     stat_len: '比对后长度', stat_len_desc: '含gap的总长度', stat_diff: '差异数', stat_diff_desc: '错配+空位', stat_rate: '差异率', stat_rate_desc: '差异数/总长度',
@@ -265,7 +265,7 @@ var I18N = {
     stat_comp_rate_label: '差异率(除gap):', stat_comp_rate_desc: '错配/匹配+错配', detail_toggle: '详细数据',
     leg_match: '匹配', leg_mismatch: '错配', leg_gap: '空位',
     copy_btn: '复制', export_btn: '导出CSV', copy_ok: '已复制',
-    th_pos: '位点', th_seq1: '序列1', th_seq2: '序列2', th_type: '类型',
+    th_pos: '位点', th_align_pos: '比对位点', th_seq1_pos: 'Seq1位点', th_seq2_pos: 'Seq2位点', th_seq1: 'Seq1', th_seq2: 'Seq2', th_type: '类型',
     type_mismatch: '错配', type_gap1: '序列1空位', type_gap2: '序列2空位',
     upper_btn: 'Aa', guide_title: '快速开始',
     guide_content: '<strong>① 添加序列</strong>　在下方粘贴两条序列，或上传 FASTA 文件<br><strong>② 选择模式</strong>　已比对 / NW自动比对 / MAFFT比对<br><strong>③ 开始计算</strong>　查看差异位点、统计与可视化'
@@ -281,7 +281,7 @@ var I18N = {
     upload_main: '<strong style="color:var(--primary)">Click to upload</strong> or drag FASTA / TXT files here',
     upload_sub: 'Supports .fasta / .fa / .txt formats',
     history_empty: 'No records yet, auto-saved after comparison', loading_text: 'Aligning...',
-    err_empty: 'Please enter two sequences', err_parse: 'Failed to parse sequences', err_length: 'Sequences have different lengths',
+    err_empty: 'Please enter two sequences', err_parse: 'Failed to parse sequences', err_length: 'Sequences have different lengths', err_invalid_chars: 'Invalid characters detected', err_too_many: 'This version only supports two sequences. Please select or enter exactly two sequences.',
     err_timeout: 'MAFFT alignment timeout',
     status_aligned: 'Pre-aligned (Direct)', status_nw: 'NW Auto-align', status_mafft: 'MAFFT Align',
     stat_len: 'Aligned Length', stat_len_desc: 'Total length incl. gaps', stat_diff: 'Differences', stat_diff_desc: 'Mismatch + Gap', stat_rate: 'Diff Rate', stat_rate_desc: 'Differences / Total',
@@ -289,7 +289,7 @@ var I18N = {
     stat_comp_rate_label: 'Diff Rate (excl. gap):', stat_comp_rate_desc: 'Mismatch / Match+Mismatch', detail_toggle: 'Details',
     leg_match: 'Match', leg_mismatch: 'Mismatch', leg_gap: 'Gap',
     copy_btn: 'Copy', export_btn: 'Export CSV', copy_ok: 'Copied!',
-    th_pos: 'Position', th_seq1: 'Seq 1', th_seq2: 'Seq 2', th_type: 'Type',
+    th_pos: 'Position', th_align_pos: 'Align Pos', th_seq1_pos: 'Seq1 Pos', th_seq2_pos: 'Seq2 Pos', th_seq1: 'Seq1', th_seq2: 'Seq2', th_type: 'Type',
     type_mismatch: 'Mismatch', type_gap1: 'Gap in Seq1', type_gap2: 'Gap in Seq2',
     upper_btn: 'Aa', guide_title: 'Quick Start',
     guide_content: '<strong>① Add Sequences</strong>　Paste two sequences or upload FASTA<br><strong>② Select Mode</strong>　Pre-aligned / NW Auto / MAFFT<br><strong>③ Start</strong>　View differences, statistics and visualization'
@@ -361,13 +361,30 @@ function showError(msg) {
   setTimeout(function() { el.classList.remove('show'); }, 5000);
 }
 
+var VALID_BASES = /[ATCGUNRYSWKMBDHV-]/i;
+
 function extractSeq(text) {
   var trimmed = text.trim();
   if (trimmed.indexOf('>') === 0) {
     var seqs = parseFasta(trimmed);
     return seqs.length ? seqs[0] : null;
   }
-  var seq = trimmed.toUpperCase().replace(/[^ATCGUNRYSWKMBDHV-]/g, '');
+  var upper = trimmed.toUpperCase();
+  var invalidChars = [];
+  var seen = {};
+  for (var i = 0; i < upper.length; i++) {
+    var ch = upper[i];
+    if (ch === '\n' || ch === '\r' || ch === ' ') continue;
+    if (!VALID_BASES.test(ch) && !seen[ch]) {
+      seen[ch] = true;
+      invalidChars.push(ch);
+    }
+  }
+  if (invalidChars.length > 0) {
+    showError(t('err_invalid_chars') + ': ' + invalidChars.join(', '));
+    return null;
+  }
+  var seq = upper.replace(/[\n\r ]/g, '');
   return { name: 'User Sequence', seq: seq };
 }
 
@@ -476,30 +493,54 @@ function computeStats(a1, a2) {
   var len = Math.min(a1.length, a2.length);
   for (var i=0; i<len; i++) {
     var a=a1[i], b=a2[i];
-    if (a==='-' && b==='-') gap++;
+    if (a==='-' && b==='-') continue;
     else if (a==='-' || b==='-') gap++;
     else if (a===b) match++;
     else mismatch++;
   }
-  var diff = mismatch+gap;
-  var rate = len>0 ? (diff/len*100) : 0;
   var compLen = match+mismatch;
-  var compRate = compLen>0 ? (mismatch/compLen*100) : 0;
-  return { length:len, match:match, mismatch:mismatch, gap:gap, diff:diff, rate:Math.min(100,rate), comparedLen:compLen, comparedDiffRate:Math.min(100,compRate) };
+  var identity = compLen>0 ? (match/compLen*100) : 0;
+  var mismatchRate = compLen>0 ? (mismatch/compLen*100) : 0;
+  var gapRate = len>0 ? (gap/len*100) : 0;
+  var variableSites = mismatch+gap;
+  return {
+    length:len, match:match, mismatch:mismatch, gap:gap,
+    diff:variableSites, identity:Math.min(100,identity),
+    mismatchRate:Math.min(100,mismatchRate), gapRate:Math.min(100,gapRate),
+    comparedLen:compLen, comparedDiffRate:Math.min(100,mismatchRate),
+    variableSites:variableSites,
+    rate: len>0 ? Math.min(100, (variableSites/len*100)) : 0
+  };
 }
 
 function findDifferences(a1, a2) {
   var diffs = [];
+  var seq1Pos = 0, seq2Pos = 0;
   for (var i=0; i<Math.min(a1.length,a2.length); i++) {
+    if (a1[i] !== '-') seq1Pos++;
+    if (a2[i] !== '-') seq2Pos++;
     if (a1[i]!==a2[i]) {
       var type = a1[i]==='-' ? 'gap1' : a2[i]==='-' ? 'gap2' : 'mismatch';
-      diffs.push({ pos:i+1, base1:a1[i], base2:a2[i], type:type });
+      diffs.push({
+        alignmentPos: i+1,
+        seq1Pos: a1[i]==='-' ? '-' : seq1Pos,
+        seq1Base: a1[i],
+        seq2Pos: a2[i]==='-' ? '-' : seq2Pos,
+        seq2Base: a2[i],
+        type: type,
+        pos: i+1, base1: a1[i], base2: a2[i]
+      });
     }
   }
   return diffs;
 }
 
 
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+}
 function cleanSeqName(name) {
   var idx = name.indexOf('(');
   if (idx > 0) name = name.substring(0, idx);
@@ -511,6 +552,11 @@ function renderViz(a1, a2, n1, n2) {
   n2 = cleanSeqName(n2);
   var vc = document.getElementById('vizContainer');
   vc.innerHTML = '';
+  // DOM protection: if alignment is too long, show simplified view
+  if (a1.length > 5000) {
+    vc.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted)"><p>Alignment too long ('+a1.length+' bp) for full visualization.</p><p>Showing summary only. Use Trim to reduce the view range.</p></div>';
+    return;
+  }
   var len = a1.length;
   var nw = nameWidth;
 
@@ -551,11 +597,11 @@ function renderViz(a1, a2, n1, n2) {
 function renderDiffTable(diffs) {
   var body = document.getElementById('diffBody');
   body.innerHTML = '';
-  if (!diffs.length) { body.innerHTML='<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--muted)">'+t('err_empty')+'</td></tr>'; return; }
+  if (!diffs.length) { body.innerHTML='<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--muted)">'+t('err_empty')+'</td></tr>'; return; }
   var types = { mismatch:t('type_mismatch'), gap1:t('type_gap1'), gap2:t('type_gap2') };
   for (var i=0;i<diffs.length;i++) {
     var d=diffs[i];
-    body.innerHTML += '<tr><td style="font-weight:600;color:var(--primary)">'+(i+1)+'</td><td style="font-weight:600;color:var(--primary)">'+d.pos+'</td><td style="font-family:monospace;font-weight:600">'+d.base1+'</td><td style="font-family:monospace;font-weight:600">'+d.base2+'</td><td>'+(types[d.type]||d.type)+'</td></tr>';
+    body.innerHTML += '<tr><td style="font-weight:600;color:var(--primary)">'+(i+1)+'</td><td style="font-weight:600;color:var(--primary)">'+d.alignmentPos+'</td><td>'+d.seq1Pos+'</td><td style="font-family:monospace;font-weight:600">'+escapeHtml(String(d.seq1Base))+'</td><td>'+d.seq2Pos+'</td><td style="font-family:monospace;font-weight:600">'+escapeHtml(String(d.seq2Base))+'</td><td>'+(types[d.type]||d.type)+'</td></tr>';
   }
 }
 
@@ -611,6 +657,9 @@ async function run() {
     renderViz(a1, a2, s1.name, s2.name);
     renderDiffTable(findDifferences(a1, a2));
     document.getElementById('loading').classList.remove('show');
+    if (a1.length > 3000) {
+      showError('Long sequence ('+a1.length+' bp). Visualization may be slow. Consider using Trim to reduce the view range.');
+    }
     document.getElementById('results').classList.add('show');
     document.getElementById('trimControls').style.display='flex';
     document.getElementById('trimStart').value=1;
@@ -639,7 +688,7 @@ function renderHistory() {
   for (var i=0;i<historyCache.length;i++) {
     var h=historyCache[i];
     var rate = h.stats.rate.toFixed(2);
-    el.innerHTML += '<div class="history-item" onclick="loadHistory('+i+')"><div><div style="font-size:13px;font-weight:600">'+h.name1+' vs '+h.name2+'</div><div style="font-size:11px;color:var(--muted);margin-top:2px">'+h.stats.length+' bp · '+rate+'% · '+h.time+'</div></div></div>';
+    el.innerHTML += '<div class="history-item" onclick="loadHistory('+i+')"><div><div style="font-size:13px;font-weight:600">'+escapeHtml(h.name1)+' vs '+escapeHtml(h.name2)+'</div><div style="font-size:11px;color:var(--muted);margin-top:2px">'+h.stats.length+' bp · '+rate+'% · '+h.time+'</div></div></div>';
   }
 }
 

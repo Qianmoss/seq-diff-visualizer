@@ -3,8 +3,6 @@ SeqDiff Visualizer - Flask Backend
 调用本地 MAFFT 进行序列比对，返回结果给前端
 """
 import os
-import sys
-import json
 import subprocess
 import tempfile
 import webbrowser
@@ -109,11 +107,11 @@ def mafft_align():
             'aligned2': aligned2,
             'name1': names[0],
             'name2': names[1],
-            'method': 'MAFFT FFT-NS-2'
+            'method': 'MAFFT --auto'
         })
         
     except subprocess.TimeoutExpired:
-        return jsonify({'error': 'MAFFT 执行超时（60秒）'}), 500
+        return jsonify({'error': 'MAFFT 执行超时（120秒）'}), 500
     except Exception as e:
         return jsonify({'error': '执行出错: ' + str(e)}), 500
     finally:
