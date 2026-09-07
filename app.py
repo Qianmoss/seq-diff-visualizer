@@ -47,6 +47,16 @@ def mafft_align():
     if not seq1 or not seq2:
         return jsonify({'error': '请提供两条序列'}), 400
     
+    # Validate DNA characters
+    import re
+    valid_bases = re.compile(r'^[ATCGUNRYSWKMBDHV-]+$', re.IGNORECASE)
+    if not valid_bases.match(seq1.replace(' ', '').replace('
+', '')):
+        return jsonify({'error': '序列1包含非法字符'}), 400
+    if not valid_bases.match(seq2.replace(' ', '').replace('
+', '')):
+        return jsonify({'error': '序列2包含非法字符'}), 400
+    
     mafft_path = find_mafft()
     if not mafft_path:
         return jsonify({'error': '未找到 MAFFT，请确认 mafft-win 文件夹中有 mafft.exe'}), 500
@@ -54,14 +64,13 @@ def mafft_align():
     # 创建临时 FASTA 文件
     fasta_content = ">%s\n%s\n>%s\n%s\n" % (seq1_name, seq1, seq2_name, seq2)
     
+    input_file = None
     try:
         with tempfile.NamedTemporaryFile(mode='w', suffix='.fasta', delete=False, encoding='utf-8') as f:
             f.write(fasta_content)
             input_file = f.name
         
-        output_file = input_file + '.out'
-        
-        # 调用 MAFFT (FFT-NS-2 模式，双序列比对最快)
+        # 调用 MAFFT
         mafft_dir = os.path.dirname(mafft_path)
         cmd = 'cmd.exe /C "cd /d %s && mafft.bat --auto %s"' % (mafft_dir, input_file)
         result = subprocess.run(
@@ -116,10 +125,11 @@ def mafft_align():
         return jsonify({'error': '执行出错: ' + str(e)}), 500
     finally:
         # 清理临时文件
-        try:
-            os.unlink(input_file)
-        except:
-            pass
+        if input_file:
+            try:
+                os.unlink(input_file)
+            except:
+                pass
 
 @app.route('/api/check-mafft')
 def check_mafft():
