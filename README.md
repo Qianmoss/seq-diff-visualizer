@@ -1,6 +1,6 @@
 # SeqDiff Visualizer
 
-**v1.1 — Stability & Accuracy Update**
+**v1.1.0 — Stability & Accuracy Update**
 
 一个用于 DNA 双序列比对、差异率分析与差异位点可视化的轻量工具，支持 NW 和 MAFFT 两种自动比对方式，以及多种 GAP 处理策略，并提供序列裁剪、差异位置映射和结果导出功能。
 
@@ -131,9 +131,9 @@ MIT License — 详见 [LICENSE](LICENSE)
 - [MAFFT](https://mafft.cbrc.jp/alignment/software/) — 多序列比对算法
 - [Flask](https://flask.palletsprojects.com/) — Python Web 框架
 
-## v1.1 更新说明
+## v1.1.0 更新说明
 
-**v1.1 — Stability & Accuracy Update**
+**v1.1.0 — Stability & Accuracy Update**
 
 本次更新主要提升了数据可靠性与使用稳定性：
 
