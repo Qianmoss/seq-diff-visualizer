@@ -361,7 +361,7 @@ function showError(msg) {
   setTimeout(function() { el.classList.remove('show'); }, 5000);
 }
 
-var VALID_BASES = /[ATCGUNRYSWKMBDHV-]/i;
+var VALID_SET = new Set('ATCGUNRYSWKMBDHV-');
 
 function extractSeq(text) {
   var trimmed = text.trim();
@@ -375,7 +375,7 @@ function extractSeq(text) {
   for (var i = 0; i < upper.length; i++) {
     var ch = upper[i];
     if (ch === '\n' || ch === '\r' || ch === ' ') continue;
-    if (!VALID_BASES.test(ch) && !seen[ch]) {
+    if (!VALID_SET.has(ch) && !seen[ch]) {
       seen[ch] = true;
       invalidChars.push(ch);
     }
@@ -400,7 +400,12 @@ function parseFasta(text) {
       name = t.substring(1).trim();
       seq = '';
     } else {
-      seq += t.toUpperCase().replace(/[^ATCGUNRYSWKMBDHV-]/g, '');
+      var lineUpper = t.toUpperCase();
+      for (var j = 0; j < lineUpper.length; j++) {
+        var ch = lineUpper[j];
+        if (ch === ' ' || ch === '\r') continue;
+        if (VALID_SET.has(ch)) seq += ch;
+      }
     }
   }
   if (name && seq) results.push({ name: name, seq: seq });

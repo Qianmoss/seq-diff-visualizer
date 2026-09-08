@@ -412,6 +412,33 @@ function parseFasta(text) {
   return results;
 }
 
+function handleDrop(event) {
+  var files = event.dataTransfer.files;
+  if (files.length > 0) {
+    var file = files[0];
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      var text = e.target.result;
+      var seqs = parseFasta(text);
+      if (seqs.length === 0) {
+        showError(t('err_parse'));
+        return;
+      }
+      if (seqs.length === 1) {
+        document.getElementById('seq1').value = '>' + seqs[0].name + '\n' + seqs[0].seq;
+      } else if (seqs.length === 2) {
+        document.getElementById('seq1').value = '>' + seqs[0].name + '\n' + seqs[0].seq;
+        document.getElementById('seq2').value = '>' + seqs[1].name + '\n' + seqs[1].seq;
+      } else {
+        document.getElementById('seq1').value = '>' + seqs[0].name + '\n' + seqs[0].seq;
+        document.getElementById('seq2').value = '>' + seqs[1].name + '\n' + seqs[1].seq;
+        showError(t('err_too_many'));
+      }
+    };
+    reader.readAsText(file);
+  }
+}
+
 function handleFile(event) {
   var file = event.target.files[0];
   if (!file) return;
