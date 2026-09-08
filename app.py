@@ -3,6 +3,7 @@ SeqDiff Visualizer - Flask Backend
 调用本地 MAFFT 进行序列比对，返回结果给前端
 """
 import os
+import sys
 import subprocess
 import tempfile
 import webbrowser
@@ -11,8 +12,12 @@ from flask import Flask, request, jsonify, send_from_directory
 
 app = Flask(__name__, static_folder='.', static_url_path='')
 
-# MAFFT 可执行文件路径
-MAFFT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'mafft-win')
+# MAFFT 可执行文件路径（兼容 PyInstaller 打包）
+if getattr(sys, 'frozen', False):
+    BASE_DIR = os.path.dirname(sys.executable)
+else:
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MAFFT_DIR = os.path.join(BASE_DIR, 'mafft-win')
 MAFFT_BAT = os.path.join(MAFFT_DIR, 'mafft.bat')
 
 def find_mafft():
