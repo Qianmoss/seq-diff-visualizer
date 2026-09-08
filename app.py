@@ -157,13 +157,13 @@ if __name__ == '__main__':
     # 检查 MAFFT
     mafft_path = find_mafft()
     if mafft_path:
-        print(f"✓ MAFFT 已找到: {mafft_path}")
+        print(f"[OK] MAFFT found: {mafft_path}")
     else:
-        print(f"⚠ 未找到 MAFFT，请将 mafft.exe 放入: {MAFFT_DIR}")
+        print(f"[WARN] MAFFT not found in: {MAFFT_DIR}")
     
-    print(f"\n🧬 SeqDiff Visualizer 启动中...")
-    print(f"📖 浏览器将自动打开: http://localhost:{port}")
-    print(f"🛑 按 Ctrl+C 停止\n")
+    print(f"\nSeqDiff Visualizer starting...")
+    print(f"Browser will open: http://localhost:{port}")
+    print(f"Press Ctrl+C to stop\n")
     
     # 自动打开浏览器
     threading.Thread(target=open_browser, args=(port,), daemon=True).start()
