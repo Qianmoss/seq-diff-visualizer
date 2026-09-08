@@ -75,7 +75,8 @@ def mafft_align():
         
         # 调用 MAFFT
         mafft_dir = os.path.dirname(mafft_path)
-        cmd = 'cmd.exe /C "cd /d %s && mafft.bat --auto %s"' % (mafft_dir, input_file)
+        # Use list form to handle paths with spaces properly
+        cmd = ['cmd.exe', '/C', 'mafft.bat', '--auto', input_file]
         result = subprocess.run(
             cmd,
             capture_output=True,
@@ -83,7 +84,8 @@ def mafft_align():
             timeout=120,
             encoding='utf-8',
             errors='replace',
-            shell=True
+            shell=False,
+            cwd=mafft_dir
         )
         
         if result.returncode != 0:
