@@ -64,8 +64,8 @@ def mafft_align():
     if not mafft_path:
         return jsonify({'error': '未找到 MAFFT，请确认 mafft-win 文件夹中有 mafft.exe'}), 500
     
-    # 创建临时 FASTA 文件
-    fasta_content = ">%s\n%s\n>%s\n%s\n" % (seq1_name, seq1, seq2_name, seq2)
+    # 创建临时 FASTA 文件 — 使用固定内部 ID，避免同名导致解析失败
+    fasta_content = ">SeqDiff_1\n%s\n>SeqDiff_2\n%s\n" % (seq1, seq2)
     
     input_file = None
     try:
@@ -91,7 +91,7 @@ def mafft_align():
         if result.returncode != 0:
             return jsonify({'error': 'MAFFT 执行失败: ' + result.stderr[:500]}), 500
         
-        # 解析输出
+        # 解析输出 — 按固定内部 ID 提取
         output = result.stdout
         sequences = {}
         current_name = None
@@ -109,18 +109,17 @@ def mafft_align():
         if current_name:
             sequences[current_name] = current_seq
         
-        names = list(sequences.keys())
-        if len(names) < 2:
-            return jsonify({'error': 'MAFFT 输出格式错误'}), 500
+        aligned1 = sequences.get('SeqDiff_1', '')
+        aligned2 = sequences.get('SeqDiff_2', '')
         
-        aligned1 = sequences[names[0]]
-        aligned2 = sequences[names[1]]
+        if not aligned1 or not aligned2:
+            return jsonify({'error': 'MAFFT 输出格式错误'}), 500
         
         return jsonify({
             'aligned1': aligned1,
             'aligned2': aligned2,
-            'name1': names[0],
-            'name2': names[1],
+            'name1': seq1_name,
+            'name2': seq2_name,
             'method': 'MAFFT --auto'
         })
         

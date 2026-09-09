@@ -12,6 +12,7 @@ build/
 
 # PyInstaller
 *.spec.bak
+dist/
 
 # IDE
 .vscode/

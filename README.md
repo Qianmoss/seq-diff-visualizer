@@ -22,6 +22,16 @@ The tool is particularly useful when sequence comparison requires not only align
 
 ---
 
+## What's New in v1.2.0
+
+- **Automatic orientation detection**: NW and MAFFT modes automatically detect if Sequence 2 is reverse-complemented and flip it before alignment
+- **Drag-and-drop upload**: Drop FASTA/TXT files directly onto the input area
+- **Improved MAFFT compatibility**: Fixed HTTP 500 when two sequences share the same name
+- **Enhanced CSV export**: Export now includes Alignment Position, Seq1/Seq2 Position, and Seq1/Seq2 Base columns
+- **Alignment mode tooltips**: Hover over ⓘ icons for quick mode descriptions
+
+---
+
 ## Workflow
 
 ```

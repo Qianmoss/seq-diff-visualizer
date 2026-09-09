@@ -61,8 +61,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans S
 .lang-btn.active{background:var(--primary);color:#fff;border-radius:var(--radius)}
 .upload-zone{margin-top:14px;padding:14px;border:2px dashed var(--border);border-radius:var(--radius);cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:12px}
 .upload-zone:hover{border-color:var(--primary)}
-.mode-hint{display:inline-block;width:14px;height:14px;border-radius:50%;background:var(--border);color:var(--muted);font-size:10px;text-align:center;line-height:14px;cursor:help;margin-left:4px;position:relative}
-.mode-hint:hover::after{content:attr(data-tip);position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:#2d2d2d;color:#fff;padding:4px 8px;border-radius:4px;font-size:11px;white-space:nowrap;z-index:10;pointer-events:none;margin-bottom:4px;max-width:280px;white-space:normal;text-align:left;line-height:1.4}
+
 
 
 .tooltip{position:relative;cursor:pointer}
@@ -112,7 +111,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans S
         <textarea id="seq2" data-i18n-ph="seq2_ph"></textarea>
       </div>
     </div>
-    <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
+    <div class="upload-zone" onclick="document.getElementById('fileInput').click()"
+      ondragover="event.preventDefault(); this.style.borderColor='var(--primary)'; this.style.background='rgba(61,90,61,0.05)'"
+      ondragleave="this.style.borderColor=''; this.style.background=''"
+      ondrop="event.preventDefault(); this.style.borderColor=''; this.style.background=''; handleDrop(event)">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
       <div>
         <div style="font-size:13px;color:var(--muted)" data-i18n="upload_main"></div>
@@ -123,9 +125,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans S
     <div id="modeSelector" style="display:flex;align-items:center;gap:10px;margin-top:16px;margin-bottom:14px">
       <span style="font-size:13px;color:var(--muted);white-space:nowrap" data-i18n="mode_label">分析模式:</span>
       <div class="viz-toggle">
-        <button class="viz-toggle-btn active" id="btnAligned" onclick="setMode('aligned')" data-i18n="mode_aligned">已比对</button>
-        <button class="viz-toggle-btn" id="btnNw" onclick="setMode('nw')" data-i18n="mode_nw">NW自动比对</button>
-        <button class="viz-toggle-btn" id="btnMafft" onclick="setMode('mafft')" data-i18n="mode_mafft">MAFFT比对</button>
+        <button class="viz-toggle-btn active" id="btnAligned" onclick="setMode('aligned')" data-i18n="mode_aligned">已比对</button><span style="font-size:11px;color:var(--primary);cursor:help;margin-left:2px;font-weight:700" class="mode-tooltip" title="两条序列已经完成比对，直接对现有比对结果进行差异分析。">ⓘ</span>
+        <button class="viz-toggle-btn" id="btnNw" onclick="setMode('nw')" data-i18n="mode_nw">NW自动比对</button><span style="font-size:11px;color:var(--primary);cursor:help;margin-left:2px;font-weight:700" class="mode-tooltip" title="使用 Needleman-Wunsch 算法进行全局比对，适用于两条尚未比对的序列。">ⓘ</span>
+        <button class="viz-toggle-btn" id="btnMafft" onclick="setMode('mafft')" data-i18n="mode_mafft">MAFFT比对</button><span style="font-size:11px;color:var(--primary);cursor:help;margin-left:2px;font-weight:700" class="mode-tooltip" title="调用 MAFFT 进行自动序列比对。">ⓘ</span>
       </div>
     </div>
     <div class="actions">
@@ -144,6 +146,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans S
         <span data-i18n="results_title">统计结果</span>
       </div>
       <div id="statusBadge" style="display:inline-block;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;margin-bottom:14px"></div>
+        <div id="orientationInfo" style="display:none;font-size:11px;color:var(--muted);margin-bottom:10px;padding:4px 8px;background:var(--card);border-radius:4px;border:1px solid var(--border)"></div>
       <div class="stats">
         <div class="stat-item highlight"><div class="stat-value" id="statLen">-</div><div class="stat-label" data-i18n="stat_len">比对后长度</div>
         <div style="font-size:10px;color:var(--muted);margin-top:2px" data-i18n="stat_len_desc"></div></div>
@@ -183,7 +186,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans S
             <input type="checkbox" id="baseColorToggle" onchange="toggleBaseColor()">
             <span data-i18n="base_color">碱基着色</span>
           </label>
-          <button class="viz-toggle-btn" onclick="toggleCase()" data-i18n="upper_btn" style="padding:4px 10px;font-size:12px">Aa</button>
           <div class="viz-toggle" id="vizModeToggle">
             <button class="viz-toggle-btn active" onclick="setVizMode('wrap')" data-i18n="viz_wrap">折行</button>
             <button class="viz-toggle-btn" onclick="setVizMode('single')" data-i18n="viz_single">单行</button>
@@ -239,11 +241,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans S
 
 <script>
 var currentMode = 'aligned';
-var lastAligned1 = '', lastAligned2 = '', lastName1 = '', lastName2 = '';
+var lastAligned1 = '', lastAligned2 = '', lastName1 = '', lastName2 = '', currentOrientation = 'original';
 var historyCache = [];
+var lastDiffs = [];
 var baseColorEnabled = false;
 var vizMode = 'wrap';
-var showUppercase = false;
 var nameWidth = 200;
 var originalAligned1 = '', originalAligned2 = '';
 var dragging = false;
@@ -256,13 +258,14 @@ var I18N = {
     viz_title: '比对可视化', base_color: '碱基着色', viz_wrap: '折行', viz_single: '单行',
     trim_label: '裁剪:', trim_apply: '应用', trim_reset: '重置',
     seq1_label: '序列1', seq2_label: '序列2',
-    seq1_ph: '粘贴序列1...', seq2_ph: '粘贴序列2...',
+    seq1_ph: '>序列1\n粘贴碱基序列', seq2_ph: '>序列2\n粘贴碱基序列',
     upload_main: '<strong style="color:var(--primary)">点击上传</strong> 或拖拽 FASTA / TXT 文件到此处',
     upload_sub: '支持 .fasta / .fa / .txt 格式',
     history_empty: '暂无记录，比对后自动保存', loading_text: '比对中...',
     err_empty: '请输入两条序列', err_parse: '序列解析失败', err_length: '已比对模式下序列长度不一致', err_invalid_chars: '检测到非法字符', err_too_many: '当前版本仅支持两条序列，请选择或输入两条序列',
     err_timeout: 'MAFFT比对超时',
     status_aligned: '已比对（直接比较）', status_nw: 'NW自动比对', status_mafft: 'MAFFT比对',
+    ori_rc: '序列方向：序列2已自动反向互补', ori_ambiguous: '序列方向：正反方向得分接近，请手动确认',
     stat_len: '比对后长度', stat_len_desc: '含gap的总长度', stat_diff: '差异数', stat_diff_desc: '错配+空位', stat_rate: '差异率', stat_rate_desc: '差异数/总长度',
     stat_comp_len: '比对长度(除gap)', stat_comp_len_desc: '去除gap后的长度', stat_match: '匹配', stat_match_desc: '碱基相同', stat_mismatch: '错配', stat_mismatch_desc: '碱基不同', stat_gap: '空位', stat_gap_desc: '单侧缺失',
     stat_comp_rate_label: '差异率(除gap):', stat_comp_rate_desc: '错配/匹配+错配', detail_toggle: '详细数据',
@@ -270,7 +273,8 @@ var I18N = {
     copy_btn: '复制', export_btn: '导出CSV', copy_ok: '已复制',
     th_pos: '位点', th_align_pos: '比对位点', th_seq1_pos: 'Seq1位点', th_seq2_pos: 'Seq2位点', th_seq1: 'Seq1', th_seq2: 'Seq2', th_type: '类型',
     type_mismatch: '错配', type_gap1: '序列1空位', type_gap2: '序列2空位',
-    upper_btn: 'Aa', guide_title: '快速开始', tip_aligned: '两条序列已经完成比对，直接对现有比对结果进行差异分析。', tip_nw: '使用 Needleman-Wunsch 算法进行全局比对，适用于两条尚未比对的序列。', tip_mafft: '调用 MAFFT 进行自动序列比对。',
+    guide_title: '快速开始', tip_aligned: '两条序列已经完成比对，直接对现有比对结果进行差异分析。', tip_nw: '使用 Needleman-Wunsch 算法进行全局比对，适用于两条尚未比对的序列。', tip_mafft: '调用 MAFFT 进行自动序列比对。',
+    tip_texts: ['两条序列已经完成比对，直接对现有比对结果进行差异分析。', '使用 Needleman-Wunsch 算法进行全局比对，适用于两条尚未比对的序列。', '调用 MAFFT 进行自动序列比对。'],
     guide_content: '<strong>① 添加序列</strong>　在下方粘贴两条序列，或上传 FASTA 文件<br><strong>② 选择模式</strong>　已比对 / NW自动比对 / MAFFT比对<br><strong>③ 开始计算</strong>　查看差异位点、统计与可视化'
   },
   en: {
@@ -280,13 +284,14 @@ var I18N = {
     viz_title: 'Alignment Visualization', base_color: 'Base Color', viz_wrap: 'Wrap', viz_single: 'Single',
     trim_label: 'Trim:', trim_apply: 'Apply', trim_reset: 'Reset',
     seq1_label: 'Seq 1', seq2_label: 'Seq 2',
-    seq1_ph: 'Paste sequence 1...', seq2_ph: 'Paste sequence 2...',
+    seq1_ph: '>Sequence 1\nPaste bases', seq2_ph: '>Sequence 2\nPaste bases',
     upload_main: '<strong style="color:var(--primary)">Click to upload</strong> or drag FASTA / TXT files here',
     upload_sub: 'Supports .fasta / .fa / .txt formats',
     history_empty: 'No records yet, auto-saved after comparison', loading_text: 'Aligning...',
     err_empty: 'Please enter two sequences', err_parse: 'Failed to parse sequences', err_length: 'Sequences have different lengths', err_invalid_chars: 'Invalid characters detected', err_too_many: 'This version only supports two sequences. Please select or enter exactly two sequences.',
     err_timeout: 'MAFFT alignment timeout',
     status_aligned: 'Pre-aligned (Direct)', status_nw: 'NW Auto-align', status_mafft: 'MAFFT Align',
+    ori_rc: 'Orientation: Sequence 2 reverse-complemented', ori_ambiguous: 'Orientation: Scores close in both directions, please verify manually',
     stat_len: 'Aligned Length', stat_len_desc: 'Total length incl. gaps', stat_diff: 'Differences', stat_diff_desc: 'Mismatch + Gap', stat_rate: 'Diff Rate', stat_rate_desc: 'Differences / Total',
     stat_comp_len: 'Length (excl. gap)', stat_comp_len_desc: 'Length minus gaps', stat_match: 'Match', stat_match_desc: 'Same base', stat_mismatch: 'Mismatch', stat_mismatch_desc: 'Different base', stat_gap: 'Gap', stat_gap_desc: 'One-side missing',
     stat_comp_rate_label: 'Diff Rate (excl. gap):', stat_comp_rate_desc: 'Mismatch / Match+Mismatch', detail_toggle: 'Details',
@@ -294,7 +299,8 @@ var I18N = {
     copy_btn: 'Copy', export_btn: 'Export CSV', copy_ok: 'Copied!',
     th_pos: 'Position', th_align_pos: 'Align Pos', th_seq1_pos: 'Seq1 Pos', th_seq2_pos: 'Seq2 Pos', th_seq1: 'Seq1', th_seq2: 'Seq2', th_type: 'Type',
     type_mismatch: 'Mismatch', type_gap1: 'Gap in Seq1', type_gap2: 'Gap in Seq2',
-    upper_btn: 'Aa', guide_title: 'Quick Start', tip_aligned: 'Compare two sequences that are already aligned.', tip_nw: 'Perform global alignment of two unaligned sequences using Needleman-Wunsch.', tip_mafft: 'Perform automatic sequence alignment using MAFFT.',
+    guide_title: 'Quick Start', tip_aligned: 'Compare two sequences that are already aligned.', tip_nw: 'Perform global alignment of two unaligned sequences using Needleman-Wunsch.', tip_mafft: 'Perform automatic sequence alignment using MAFFT.',
+    tip_texts: ['Compare two sequences that are already aligned.', 'Perform global alignment of two unaligned sequences using Needleman-Wunsch.', 'Perform automatic sequence alignment using MAFFT.'],
     guide_content: '<strong>① Add Sequences</strong>　Paste two sequences or upload FASTA<br><strong>② Select Mode</strong>　Pre-aligned / NW Auto / MAFFT<br><strong>③ Start</strong>　View differences, statistics and visualization'
   }
 };
@@ -328,13 +334,6 @@ function stopDrag() {
   document.removeEventListener('mouseup', stopDrag);
 }
 
-function toggleCase() {
-  showUppercase = !showUppercase;
-  var btn = document.querySelector('[onclick="toggleCase()"]');
-  if (btn) btn.classList.toggle('active', showUppercase);
-  if (lastAligned1) renderViz(lastAligned1, lastAligned2, lastName1, lastName2);
-}
-
 function switchLang(lang) {
   currentLang = lang;
   document.querySelectorAll('.lang-btn').forEach(function(b) {
@@ -344,10 +343,17 @@ function switchLang(lang) {
     var k = el.getAttribute('data-i18n');
     if (I18N[lang][k]) el.innerHTML = I18N[lang][k];
   });
-  document.querySelectorAll('[data-i18n-tip]').forEach(function(el) {
-    var k = el.getAttribute('data-i18n-tip');
-    if (I18N[lang][k]) el.setAttribute('data-tip', I18N[lang][k]);
-  });
+    // Update tooltip titles based on language
+  var tips = document.querySelectorAll('.mode-tooltip');
+  var tipTexts = I18N[lang].tip_texts || [];
+  tips.forEach(function(el, i) { if (tipTexts[i]) el.title = tipTexts[i]; });
+
+  // Update orientation text on language switch
+  var oriEl = document.getElementById('orientationInfo');
+  if (oriEl && oriEl.style.display !== 'none') {
+    if (currentOrientation === 'reverse-complemented') oriEl.textContent = t('ori_rc');
+    else if (currentOrientation === 'ambiguous') oriEl.textContent = t('ori_ambiguous');
+  }
   document.querySelectorAll('[data-i18n-ph]').forEach(function(el) {
     var k = el.getAttribute('data-i18n-ph');
     if (I18N[lang][k]) el.placeholder = I18N[lang][k];
@@ -369,6 +375,16 @@ function showError(msg) {
 }
 
 var VALID_SET = new Set('ATCGUNRYSWKMBDHV-');
+
+function reverseComplement(seq) {
+  var comp = {A:'T',T:'A',C:'G',G:'C',R:'Y',Y:'R',S:'S',W:'W',K:'M',M:'K',B:'V',V:'B',D:'H',H:'D',N:'N','-':'-'};
+  var result = '';
+  for (var i = seq.length - 1; i >= 0; i--) {
+    var base = seq[i].toUpperCase();
+    result += (comp[base] || base);
+  }
+  return result;
+}
 
 function extractSeq(text) {
   var trimmed = text.trim();
@@ -503,7 +519,8 @@ function needlemanWunsch(s1, s2, matchScore, mismatchScore, gapOpen, gapExtend) 
       else { al1='-'+al1; al2=s2[cj-1]+al2; cj--; }
     }
   }
-  return { aligned1: al1, aligned2: al2 };
+  var finalScore = Math.max(fM, fX, fY);
+  return { aligned1: al1, aligned2: al2, score: finalScore };
 }
 
 async function mafftAlign(seq1, seq2, name1, name2) {
@@ -603,10 +620,10 @@ function renderViz(a1, a2, n1, n2) {
     vc.style.whiteSpace='nowrap';
     vc.style.overflowX='auto';
     var h = '<div style="display:flex;align-items:center;margin-bottom:4px"><div style="width:'+nw+'px;text-align:right;padding-right:4px;flex-shrink:0;white-space:nowrap;font-size:11px;color:var(--muted);cursor:col-resize;border-right:2px solid var(--border);user-select:none;overflow:hidden;text-overflow:ellipsis" onmousedown="startDrag(event)">'+n1+'</div><div style="display:flex">';
-    for (var k=0;k<len;k++) { var a=a1[k],b2=a2[k]; var cls=a==='-'?'base-gap':a===b2?'base-match':'base-mismatch'; var bc=baseColorEnabled&&a!=='-'?' base-'+a.toUpperCase():''; var dv=showUppercase?a.toUpperCase():a; h+='<span class="base '+cls+bc+' tooltip" data-tip="'+(k+1)+': '+dv+'">'+dv+'</span>'; }
+    for (var k=0;k<len;k++) { var a=a1[k],b2=a2[k]; var cls=a==='-'?'base-gap':a===b2?'base-match':'base-mismatch'; var bc=baseColorEnabled&&a!=='-'?' base-'+a.toUpperCase():''; var dv=a.toUpperCase(); h+='<span class="base '+cls+bc+' tooltip" data-tip="'+(k+1)+': '+dv+'">'+dv+'</span>'; }
     h += '</div></div>';
     h += '<div style="display:flex;align-items:center"><div style="width:'+nw+'px;text-align:right;padding-right:4px;flex-shrink:0;white-space:nowrap;font-size:11px;color:var(--muted);border-right:2px solid transparent;overflow:hidden;text-overflow:ellipsis">'+n2+'</div><div style="display:flex">';
-    for (var k=0;k<len;k++) { var a=a1[k],b2=a2[k]; var cls=b2==='-'?'base-gap':a===b2?'base-match':'base-mismatch'; var bc=baseColorEnabled&&b2!=='-'?' base-'+b2.toUpperCase():''; var dv=showUppercase?b2.toUpperCase():b2; h+='<span class="base '+cls+bc+' tooltip" data-tip="'+(k+1)+': '+dv+'">'+dv+'</span>'; }
+    for (var k=0;k<len;k++) { var a=a1[k],b2=a2[k]; var cls=b2==='-'?'base-gap':a===b2?'base-match':'base-mismatch'; var bc=baseColorEnabled&&b2!=='-'?' base-'+b2.toUpperCase():''; var dv=b2.toUpperCase(); h+='<span class="base '+cls+bc+' tooltip" data-tip="'+(k+1)+': '+dv+'">'+dv+'</span>'; }
     h += '</div></div>';
     vc.innerHTML = h;
     return;
@@ -624,16 +641,17 @@ function renderViz(a1, a2, n1, n2) {
     for (var k=s;k<e;k++) { h += (k+1)%10===0||k===s ? '<span style="width:20px;text-align:center;font-size:10px">'+(k+1)+'</span>' : '<span style="width:20px"></span>'; }
     h += '</div></div>';
     h += '<div style="display:grid;grid-template-columns:'+nw+'px 1fr;align-items:center"><div style="font-size:11px;color:var(--muted);text-align:right;padding-right:4px;white-space:nowrap;cursor:col-resize;border-right:2px solid var(--border);user-select:none" onmousedown="startDrag(event)">'+n1+'</div><div style="display:flex">';
-    for (var k=s;k<e;k++) { var a=a1[k],b2=a2[k]; var cls=a==='-'?'base-gap':a===b2?'base-match':'base-mismatch'; var bc=baseColorEnabled&&a!=='-'?' base-'+a.toUpperCase():''; var dv=showUppercase?a.toUpperCase():a; h+='<span class="base '+cls+bc+' tooltip" data-tip="'+(k+1)+': '+dv+'">'+dv+'</span>'; }
+    for (var k=s;k<e;k++) { var a=a1[k],b2=a2[k]; var cls=a==='-'?'base-gap':a===b2?'base-match':'base-mismatch'; var bc=baseColorEnabled&&a!=='-'?' base-'+a.toUpperCase():''; var dv=a.toUpperCase(); h+='<span class="base '+cls+bc+' tooltip" data-tip="'+(k+1)+': '+dv+'">'+dv+'</span>'; }
     h += '</div></div>';
     h += '<div style="display:grid;grid-template-columns:'+nw+'px 1fr;align-items:center"><div style="font-size:11px;color:var(--muted);text-align:right;padding-right:4px;white-space:nowrap;border-right:2px solid transparent">'+n2+'</div><div style="display:flex">';
-    for (var k=s;k<e;k++) { var a=a1[k],b2=a2[k]; var cls=b2==='-'?'base-gap':a===b2?'base-match':'base-mismatch'; var bc=baseColorEnabled&&b2!=='-'?' base-'+b2.toUpperCase():''; var dv=showUppercase?b2.toUpperCase():b2; h+='<span class="base '+cls+bc+' tooltip" data-tip="'+(k+1)+': '+dv+'">'+dv+'</span>'; }
+    for (var k=s;k<e;k++) { var a=a1[k],b2=a2[k]; var cls=b2==='-'?'base-gap':a===b2?'base-match':'base-mismatch'; var bc=baseColorEnabled&&b2!=='-'?' base-'+b2.toUpperCase():''; var dv=b2.toUpperCase(); h+='<span class="base '+cls+bc+' tooltip" data-tip="'+(k+1)+': '+dv+'">'+dv+'</span>'; }
     h += '</div></div>';
     div.innerHTML = h;
     vc.appendChild(div);
   }
 }
 function renderDiffTable(diffs) {
+  lastDiffs = diffs;
   var body = document.getElementById('diffBody');
   body.innerHTML = '';
   if (!diffs.length) { body.innerHTML='<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--muted)">'+t('err_empty')+'</td></tr>'; return; }
@@ -669,6 +687,26 @@ async function run() {
   document.getElementById('results').classList.remove('show');
   try {
     var a1, a2;
+    currentOrientation = 'original';
+    
+    // Auto direction detection for NW and MAFFT modes
+    if (currentMode === 'nw' || currentMode === 'mafft') {
+      var minLen = Math.min(s1.seq.length, s2.seq.length);
+      if (minLen >= 20) {
+        var rc2 = reverseComplement(s2.seq);
+        var rFwd = needlemanWunsch(s1.seq, s2.seq, 1, -1, -5, -1);
+        var rRev = needlemanWunsch(s1.seq, rc2, 1, -1, -5, -1);
+        var normFwd = rFwd.score / minLen;
+        var normRev = rRev.score / minLen;
+        if (normRev > normFwd * 1.5 && normRev > 0.3) {
+          s2.seq = rc2;
+          currentOrientation = 'reverse-complemented';
+        } else if (Math.abs(rRev.score - rFwd.score) / Math.max(Math.abs(rRev.score), Math.abs(rFwd.score), 1) < 0.2) {
+          currentOrientation = 'ambiguous';
+        }
+      }
+    }
+    
     if (currentMode === 'aligned') {
       if (s1.seq.length !== s2.seq.length) { showError(t('err_length')); document.getElementById('loading').classList.remove('show'); return; }
       a1 = s1.seq; a2 = s2.seq;
@@ -685,7 +723,24 @@ async function run() {
     if (currentMode==='aligned') { badge.style.background='var(--match-bg)'; badge.style.color='#166534'; badge.style.border='1px solid #a3d1a3'; badge.textContent=t('status_aligned'); }
     else if (currentMode==='mafft') { badge.style.background='#fef3c7'; badge.style.color='#92400e'; badge.style.border='1px solid #fde68a'; badge.textContent=t('status_mafft'); }
     else { badge.style.background='#fef3c7'; badge.style.color='#92400e'; badge.style.border='1px solid #fde68a'; badge.textContent=t('status_nw'); }
-    document.getElementById('statLen').textContent = stats.length.toLocaleString();
+        // Show orientation info
+        var oriEl = document.getElementById('orientationInfo');
+        if (currentOrientation === 'reverse-complemented') {
+          oriEl.textContent = t('ori_rc');
+          oriEl.style.display = 'block';
+          oriEl.style.border = '1px solid #fde68a';
+          oriEl.style.background = '#fef3c7';
+          oriEl.style.color = '#92400e';
+        } else if (currentOrientation === 'ambiguous') {
+          oriEl.textContent = t('ori_ambiguous');
+          oriEl.style.display = 'block';
+          oriEl.style.border = '1px solid #fca5a5';
+          oriEl.style.background = '#fee2e2';
+          oriEl.style.color = '#991b1b';
+        } else {
+          oriEl.style.display = 'none';
+        }
+        document.getElementById('statLen').textContent = stats.length.toLocaleString();
     document.getElementById('statCompLen').textContent = stats.comparedLen.toLocaleString();
     document.getElementById('statMatch').textContent = stats.match.toLocaleString();
     document.getElementById('statMismatch').textContent = stats.mismatch.toLocaleString();
@@ -703,7 +758,7 @@ async function run() {
     document.getElementById('trimControls').style.display='flex';
     document.getElementById('trimStart').value=1;
     document.getElementById('trimEnd').value=a1.length;
-    addToHistory(s1.name, s2.name, stats, a1, a2);
+    addToHistory(s1.name, s2.name, stats, a1, a2, currentOrientation);
   } catch(e) { showError(e.message||'Error'); document.getElementById('loading').classList.remove('show'); }
 }
 
@@ -714,8 +769,8 @@ function clearAll() {
   document.getElementById('errorMsg').classList.remove('show');
 }
 
-function addToHistory(n1,n2,stats,a1,a2) {
-  historyCache.unshift({ name1:n1, name2:n2, stats:{length:stats.length,match:stats.match,mismatch:stats.mismatch,gap:stats.gap,diff:stats.diff,rate:stats.rate,comparedLen:stats.comparedLen,comparedDiffRate:stats.comparedDiffRate}, aligned1:a1, aligned2:a2, time:new Date().toLocaleTimeString() });
+function addToHistory(n1,n2,stats,a1,a2,ori) {
+  historyCache.unshift({ name1:n1, name2:n2, stats:{length:stats.length,match:stats.match,mismatch:stats.mismatch,gap:stats.gap,diff:stats.diff,rate:stats.rate,comparedLen:stats.comparedLen,comparedDiffRate:stats.comparedDiffRate}, aligned1:a1, aligned2:a2, orientation:ori||'original', time:new Date().toLocaleTimeString() });
   if (historyCache.length>5) historyCache.pop();
   renderHistory();
 }
@@ -794,9 +849,12 @@ function copyDiff() {
 }
 
 function exportCSV() {
-  var rows = document.querySelectorAll('#diffBody tr');
-  var csv = '\uFEFF#\tPosition\tSeq1\tSeq2\tType\n';
-  rows.forEach(function(r) { var cells=r.querySelectorAll('td'); if(cells.length>=5) csv+=Array.from(cells).map(function(c){return c.textContent}).join(',')+'\n'; });
+  var typeLabels = {mismatch:'Mismatch', gap1:'Gap in Seq1', gap2:'Gap in Seq2'};
+  var csv = '\uFEFF#\tAlignment Position\tSeq1 Position\tSeq1 Base\tSeq2 Position\tSeq2 Base\tType\n';
+  for (var i = 0; i < lastDiffs.length; i++) {
+    var d = lastDiffs[i];
+    csv += (i+1) + '\t' + d.alignmentPos + '\t' + d.seq1Pos + '\t' + d.seq1Base + '\t' + d.seq2Pos + '\t' + d.seq2Base + '\t' + (typeLabels[d.type]||d.type) + '\n';
+  }
   var blob = new Blob([csv], {type:'text/csv'});
   var a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='diff_result.csv'; a.click();
 }
